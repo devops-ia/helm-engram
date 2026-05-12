@@ -13,64 +13,28 @@ A Helm chart for Engram Cloud — AI-powered persistent memory server for LLM ag
 | amartingarcia | <adrianmg231189@gmail.com> |  |
 | ialejandro | <hello@ialejandro.rocks> |  |
 
-## Architecture
-
-```mermaid
-flowchart TD
-    subgraph Cluster["Kubernetes Cluster"]
-        direction TB
-
-        ING["Ingress\n(optional)"]
-        SVC["Service\nClusterIP :18080"]
-        CM["ConfigMap\nHOST · PORT\nPROJECTS · NO_AUTH"]
-        SEC["Secret\nDATABASE_URL · JWT_SECRET\nCLOUD_ADMIN · CLOUD_TOKEN"]
-        HPA["HPA\n(optional)"]
-        PDB["PDB\n(optional)"]
-        NP["NetworkPolicy\n(optional)"]
-
-        subgraph Deployment["Deployment"]
-            IC["Init Container\nwait-for-postgresql\nnc -z pg:5432"]
-            APP["engram cloud\ncontainer :18080\n/tmp emptyDir\nUID 10001 non-root"]
-            IC -->|ready| APP
-            APP -.->|envFrom| CM
-            APP -.->|env secretKeyRef| SEC
-        end
-
-        subgraph PG["PostgreSQL StatefulSet"]
-            PGC["postgres:16-alpine\n:5432"]
-            PVC[("PVC")]
-            PGC --> PVC
-        end
-
-        ING -->|HTTP/HTTPS| SVC
-        SVC --> Deployment
-        Deployment -->|TCP :5432| PG
-        HPA -.->|scales| Deployment
-        PDB -.->|protects| Deployment
-        NP -.->|restricts| Deployment
-    end
-
-    AGENT(["AI Agents\nCopilot CLI / MCP clients"])
-    ADMIN(["Admin User\n/dashboard/admin"])
-
-    AGENT -->|"MCP sync · HTTP :18080"| ING
-    ADMIN -->|"adminToken header"| ING
-```
-
 ## TL;DR
 
 ```console
 helm repo add helm-engram https://devops-ia.github.io/helm-engram
 helm repo update
+
+# Authenticated mode (production)
 helm install my-engram helm-engram/engram \
-  --set engram.jwtSecret="your-jwt-secret" \
-  --set engram.allowedProjects="default"
+  --set engram.jwtSecret="$(openssl rand -hex 32)" \
+  --set engram.cloudToken="$(openssl rand -hex 32)" \
+  --set engram.allowedProjects="my-project" \
+  --set postgresql.auth.password="$(openssl rand -hex 16)"
 ```
+
+> **Local dev only:** add `--set engram.insecureNoAuth=true` and omit `cloudToken`/`jwtSecret`.
+> See the [repository README](https://github.com/devops-ia/helm-engram#authentication-modes)
+> for full auth documentation.
 
 ## Prerequisites
 
-* Helm 3+
-* Kubernetes 1.25+
+- Helm 3+
+- Kubernetes 1.25+
 
 No additional Helm repositories required — the chart ships with its own internal PostgreSQL templates.
 
@@ -83,217 +47,46 @@ helm repo update
 
 ## Install chart
 
-### With bundled PostgreSQL (default)
-
-The chart ships with an internal PostgreSQL StatefulSet. When `postgresql.enabled=true` (the default),
-`ENGRAM_DATABASE_URL` is automatically assembled from the auth values — you do not need to supply a DSN.
+### Bundled PostgreSQL (default)
 
 ```console
 helm install my-engram helm-engram/engram \
-  --set engram.jwtSecret="your-jwt-secret" \
+  --set engram.jwtSecret="<secret>" \
+  --set engram.cloudToken="<token>" \
   --set engram.allowedProjects="my-project" \
-  --set postgresql.auth.password="change-me"
+  --set postgresql.auth.password="<password>"
 ```
 
-### With external PostgreSQL
-
-Disable the bundled PostgreSQL and supply your own DSN:
+### External PostgreSQL
 
 ```console
 helm install my-engram helm-engram/engram \
   --set postgresql.enabled=false \
-  --set engram.databaseUrl="postgres://user:pass@my-db.example.com:5432/engram_cloud?sslmode=require" \
-  --set engram.jwtSecret="your-jwt-secret" \
+  --set engram.databaseUrl="postgres://user:pass@host:5432/engram_cloud?sslmode=require" \
+  --set engram.jwtSecret="<secret>" \
+  --set engram.cloudToken="<token>" \
   --set engram.allowedProjects="my-project"
 ```
 
-### Using a values file (recommended)
+### Values file (recommended)
 
 ```console
 helm install my-engram helm-engram/engram -f my-values.yaml
 ```
 
-## Environment Variables Reference
-
-All Engram Cloud configuration is injected as environment variables:
-
-| Env Var | Source | Values Key | Default | Notes |
-|---------|--------|------------|---------|-------|
-| `ENGRAM_DATABASE_URL` | Secret | `engram.databaseUrl` | auto-built | PostgreSQL DSN; auto-assembled when `postgresql.enabled=true` |
-| `ENGRAM_JWT_SECRET` | Secret | `engram.jwtSecret` | — | Required. JWT signing key. |
-| `ENGRAM_CLOUD_ADMIN` | Secret | `engram.adminToken` | (empty) | Admin token for `/dashboard/admin` routes |
-| `ENGRAM_CLOUD_TOKEN` | Secret | `engram.cloudToken` | (empty) | Bearer token for authentication service |
-| `ENGRAM_PORT` | ConfigMap | `engram.port` | `18080` | HTTP listen port |
-| `ENGRAM_CLOUD_HOST` | ConfigMap | `engram.host` | `0.0.0.0` | Bind address |
-| `ENGRAM_CLOUD_ALLOWED_PROJECTS` | ConfigMap | `engram.allowedProjects` | (required) | Comma-separated project allowlist |
-| `ENGRAM_CLOUD_INSECURE_NO_AUTH` | ConfigMap | `engram.insecureNoAuth` | `false` | Set `true` to disable auth (dev only) |
-
-> **Important:** `ENGRAM_CLOUD_ALLOWED_PROJECTS` is **required** even in insecure mode.
-> The binary exits immediately with no output if this variable is empty.
-
-## Authentication Modes
-
-### 1. JWT Auth (production default)
-Leave `engram.insecureNoAuth=false` and set a strong `engram.jwtSecret`. Agents authenticate via JWT tokens issued at `/auth/token`.
-
-### 2. Bearer Token Auth
-Set `engram.cloudToken` to a static bearer token alongside `jwtSecret`:
-
-```yaml
-engram:
-  jwtSecret: "strong-secret"
-  cloudToken: "static-bearer-token-for-agents"
-  allowedProjects: "my-project"
-```
-
-### 3. Insecure (dev/testing only)
-Set `engram.insecureNoAuth=true` to disable authentication entirely. **Never use in production.**
-
-```yaml
-engram:
-  insecureNoAuth: true
-  jwtSecret: "any-value"
-  allowedProjects: "my-project"
-```
-
-## Dashboard Access
-
-Engram Cloud ships a built-in dashboard at `/dashboard/`:
-
-| Route | Access | Description |
-|-------|--------|-------------|
-| `/dashboard/` | Any authenticated user | Sync status overview |
-| `/dashboard/admin` | Admin token required | Full admin panel |
-
-To enable the admin panel, set `engram.adminToken`:
-
-```yaml
-engram:
-  adminToken: "my-secure-admin-token"
-  allowedProjects: "my-project"
-```
-
-## Using an Existing Secret
-
-For production deployments, avoid passing secrets through Helm values. Use `engram.existingSecret`
-to reference a Kubernetes Secret managed externally (e.g., via External Secrets Operator, Sealed
-Secrets, or Vault Agent):
-
-```yaml
-engram:
-  existingSecret: engram-credentials
-  allowedProjects: "my-project"
-postgresql:
-  enabled: false
-```
-
-The existing Secret may contain:
-
-```yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: engram-credentials
-type: Opaque
-stringData:
-  ENGRAM_DATABASE_URL: "postgres://user:pass@host:5432/engram_cloud?sslmode=disable"
-  ENGRAM_JWT_SECRET: "your-jwt-secret"
-  # Optional
-  ENGRAM_CLOUD_ADMIN: "your-admin-token"
-  ENGRAM_CLOUD_TOKEN: "your-bearer-token"
-```
-
-## External Secrets Operator Integration
-
-Use `extraObjects` to deploy an ExternalSecret alongside the chart:
-
-```yaml
-engram:
-  existingSecret: engram-credentials
-  allowedProjects: "my-project"
-postgresql:
-  enabled: false
-
-extraObjects:
-  - apiVersion: external-secrets.io/v1beta1
-    kind: ExternalSecret
-    metadata:
-      name: engram-credentials
-    spec:
-      refreshInterval: 1h
-      secretStoreRef:
-        name: my-store
-        kind: ClusterSecretStore
-      target:
-        name: engram-credentials
-      data:
-        - secretKey: ENGRAM_DATABASE_URL
-          remoteRef:
-            key: engram/database-url
-        - secretKey: ENGRAM_JWT_SECRET
-          remoteRef:
-            key: engram/jwt-secret
-        - secretKey: ENGRAM_CLOUD_ADMIN
-          remoteRef:
-            key: engram/admin-token
-```
-
-## Security
-
-Engram Cloud runs with a hardened security posture by default:
-
-| Setting | Value | Notes |
-|---------|-------|-------|
-| `runAsNonRoot` | `true` | Pod and container level |
-| `runAsUser / runAsGroup` | `10001` | Dedicated engram UID/GID |
-| `fsGroup` | `10001` | Volume ownership |
-| `readOnlyRootFilesystem` | `true` | Container FS is read-only |
-| `allowPrivilegeEscalation` | `false` | Cannot gain extra privileges |
-| `capabilities.drop` | `["ALL"]` | No Linux capabilities |
-| `automountServiceAccountToken` | `false` | No cluster API access by default |
-
-A built-in `/tmp` emptyDir volume is mounted automatically (`tmpVolume.enabled: true` by default)
-so the application can write temporary files despite the read-only root filesystem.
-
-### NetworkPolicy
-
-Enable an optional NetworkPolicy to restrict pod traffic:
-
-```yaml
-networkPolicy:
-  enabled: true
-```
-
-When enabled, the policy allows:
-- **Ingress**: from pods in the same namespace on the service port
-- **Egress**: DNS (UDP/TCP 53), PostgreSQL (:5432), Kubernetes API (:443/:6443)
-
-## Health Probes
-
-Engram Cloud exposes `GET /health` returning `{"status":"ok","service":"engram-cloud"}`.
-
-| Probe | Initial delay | Period | Failure threshold |
-|-------|---------------|--------|-------------------|
-| Startup | — | 10s | 30 (= up to 5 min) |
-| Liveness | 10s | 10s | 3 (default) |
-| Readiness | 5s | 5s | 3 (default) |
-
-The startup probe allows up to **5 minutes** for PostgreSQL schema migrations on cold start.
-
-## Upgrade chart
+## Upgrade
 
 ```console
 helm upgrade my-engram helm-engram/engram -f my-values.yaml
 ```
 
-## Uninstall chart
+## Uninstall
 
 ```console
 helm uninstall my-engram
 ```
 
-> **Note:** The PVC created for PostgreSQL data is **not** deleted automatically.
-> Delete it manually if no longer needed: `kubectl delete pvc -l app.kubernetes.io/instance=my-engram`
+> PostgreSQL PVC is **not** deleted automatically on uninstall.
 
 ## Values
 
@@ -309,7 +102,7 @@ helm uninstall my-engram
 | engram | object | `{"adminToken":"","allowedProjects":"","cloudToken":"","databaseUrl":"","existingSecret":"","host":"0.0.0.0","insecureNoAuth":false,"jwtSecret":"","port":"18080"}` | Engram Cloud configuration |
 | engram.adminToken | string | `""` | Admin token for the dashboard /admin routes (ENGRAM_CLOUD_ADMIN). When set, grants access to /dashboard/admin. Store this in a Secret in production. |
 | engram.allowedProjects | string | `""` | Required. Comma-separated list of allowed project names that Engram will serve. Must be set even when insecureNoAuth is true. Example: "project1,project2" |
-| engram.cloudToken | string | `""` | Bearer token for authentication (ENGRAM_CLOUD_TOKEN). When set alongside jwtSecret, configures the auth service bearer token. Leave empty to use JWT-only auth flow. |
+| engram.cloudToken | string | `""` | Bearer token for client authentication (ENGRAM_CLOUD_TOKEN). REQUIRED when insecureNoAuth=false (production/authenticated mode). Must be an unguessable random string — use `openssl rand -hex 32`. Must be EMPTY when insecureNoAuth=true (dev-only insecure mode; the two are mutually exclusive). |
 | engram.databaseUrl | string | `""` | Required. PostgreSQL DSN e.g. postgres://user:pass@host:5432/engram_cloud?sslmode=disable |
 | engram.existingSecret | string | `""` | Name of an existing Secret containing ENGRAM_DATABASE_URL and ENGRAM_JWT_SECRET. When set, the chart does NOT create a Secret — use this for External Secrets Operator, Sealed Secrets, Vault Agent, or any external secrets manager. |
 | engram.host | string | `"0.0.0.0"` | Bind address for the HTTP server |

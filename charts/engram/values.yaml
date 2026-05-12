@@ -81,9 +81,10 @@ engram:
   # -- Admin token for the dashboard /admin routes (ENGRAM_CLOUD_ADMIN).
   # When set, grants access to /dashboard/admin. Store this in a Secret in production.
   adminToken: ""
-  # -- Bearer token for authentication (ENGRAM_CLOUD_TOKEN).
-  # When set alongside jwtSecret, configures the auth service bearer token.
-  # Leave empty to use JWT-only auth flow.
+  # -- Bearer token for client authentication (ENGRAM_CLOUD_TOKEN).
+  # REQUIRED when insecureNoAuth=false (production/authenticated mode).
+  # Must be an unguessable random string — use `openssl rand -hex 32`.
+  # Must be EMPTY when insecureNoAuth=true (dev-only insecure mode; the two are mutually exclusive).
   cloudToken: ""
   # -- Name of an existing Secret containing ENGRAM_DATABASE_URL and ENGRAM_JWT_SECRET.
   # When set, the chart does NOT create a Secret — use this for External Secrets Operator,

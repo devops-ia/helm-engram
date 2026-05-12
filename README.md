@@ -79,15 +79,41 @@ flowchart TD
 helm repo add helm-engram https://devops-ia.github.io/helm-engram
 helm repo update
 
+# Production (authenticated mode) — generate strong random secrets
 helm install engram helm-engram/engram \
-  --set engram.jwtSecret="change-me-in-production" \
+  --set engram.jwtSecret="$(openssl rand -hex 32)" \
+  --set engram.cloudToken="$(openssl rand -hex 32)" \
   --set engram.allowedProjects="my-project" \
-  --set postgresql.auth.password="change-me"
+  --set postgresql.auth.password="$(openssl rand -hex 16)"
 ```
 
-For full installation options, authentication modes, environment variables reference, and all
-chart values — see the **[chart documentation](charts/engram/README.md)** or the
-[ArtifactHub page](https://artifacthub.io/packages/search?repo=helm-engram).
+> **Dev/local only** — disable auth for quick local testing:
+> ```bash
+> helm install engram helm-engram/engram \
+>   --set engram.insecureNoAuth=true \
+>   --set engram.allowedProjects="my-project"
+> ```
+> Never use `insecureNoAuth=true` in production.
+
+---
+
+## Authentication Modes
+
+Engram Cloud enforces one of two mutually exclusive modes:
+
+| Mode | Values | Use case |
+|------|--------|----------|
+| **Authenticated** (default) | `insecureNoAuth: false` + `cloudToken` + `jwtSecret` | Production |
+| **Insecure** | `insecureNoAuth: true` | Local dev / CI only |
+
+**Constraints enforced by the binary** (Helm will also fail-fast):
+- `cloudToken` is **required** when `insecureNoAuth=false`
+- `cloudToken` must be **empty** when `insecureNoAuth=true` (mutually exclusive)
+- `adminToken` (for `/dashboard/admin`) requires `insecureNoAuth=false`
+- `allowedProjects` is **always required**
+
+When using `existingSecret`, the chart skips value validation — ensure your Secret contains
+`ENGRAM_DATABASE_URL`, `ENGRAM_JWT_SECRET`, and `ENGRAM_CLOUD_TOKEN`.
 
 ---
 

@@ -56,7 +56,7 @@ charts/engram/
 │   ├── _helpers.tpl      # shared named templates
 │   ├── deployment.yaml
 │   ├── configmap.yaml    # non-secret env vars (port, host, allowedProjects)
-│   ├── secret.yaml       # ENGRAM_DATABASE_URL + ENGRAM_JWT_SECRET (skipped when existingSecret set)
+│   ├── secret.yaml       # ENGRAM_DATABASE_URL + ENGRAM_JWT_SECRET (rendered only if existingSecret is empty)
 │   ├── extra-objects.yaml # renders .Values.extraObjects via tpl
 │   └── ...               # service, ingress, hpa, pdb, serviceaccount
 ├── tests/                # helm-unittest YAML test suites
@@ -72,8 +72,8 @@ charts/engram/
 - `Secret`: `ENGRAM_DATABASE_URL`, `ENGRAM_JWT_SECRET`
 
 **Secret resolution (`engram.secretName` helper):**
-- If `engram.existingSecret` is set → use that Secret, skip chart-managed `secret.yaml`
-- Otherwise → chart creates a `Secret` from `engram.databaseUrl` + `engram.jwtSecret`
+1. If `engram.existingSecret` is set, use that Secret and skip rendering `templates/secret.yaml` entirely.
+2. If `engram.existingSecret` is not set, render `templates/secret.yaml` and create a Secret from `engram.databaseUrl` + `engram.jwtSecret`.
 
 **DSN auto-build:** When `postgresql.enabled=true` and `engram.databaseUrl=""`, the `engram.databaseUrl` helper in `_helpers.tpl` assembles the DSN from `postgresql.auth.*` values. Explicit `engram.databaseUrl` always wins.
 
