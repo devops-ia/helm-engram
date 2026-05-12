@@ -1,0 +1,20 @@
+# Ingress CI values — databaseUrl auto-generated from postgresql.auth values
+engram:
+  jwtSecret: "ci-test-jwt-secret-do-not-use-in-production"
+  allowedProjects: "project1,project2"
+  insecureNoAuth: true
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+  hosts:
+    - host: engram.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: engram-tls
+      hosts:
+        - engram.example.com

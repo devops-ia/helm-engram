@@ -1,0 +1,53 @@
+# Full CI values — all optional features enabled
+# databaseUrl omitted: auto-generated from postgresql.auth values
+replicaCount: 1
+
+engram:
+  jwtSecret: "ci-test-jwt-secret-do-not-use-in-production"
+  allowedProjects: "project1,project2"
+  insecureNoAuth: true
+
+podAnnotations:
+  test-annotation: "true"
+
+podLabels:
+  test-label: "true"
+
+deploymentAnnotations:
+  deployment-annotation: "true"
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 80
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+ingress:
+  enabled: true
+  className: nginx
+  hosts:
+    - host: engram.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+
+serviceAccount:
+  annotations:
+    test-sa-annotation: "true"
+
+nodeSelector:
+  kubernetes.io/os: linux
+
+# tmpVolume.enabled=true by default; no need for extraVolumes override

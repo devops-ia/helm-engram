@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "engram Helm chart values",
+  "description": "Configuration values for the Engram Cloud Helm chart.",
+  "type": "object",
+  "properties": {
+    "replicaCount": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Number of Engram Cloud pod replicas."
+    },
+    "image": {
+      "type": "object",
+      "description": "Container image configuration.",
+      "properties": {
+        "repository": { "type": "string", "minLength": 1 },
+        "tag":        { "type": "string" },
+        "pullPolicy": { "type": "string", "enum": ["Always", "IfNotPresent", "Never"] }
+      },
+      "required": ["repository"]
+    },
+    "imagePullSecrets": { "type": "array" },
+    "nameOverride":     { "type": "string" },
+    "fullnameOverride": { "type": "string" },
+    "serviceAccount": {
+      "type": "object",
+      "properties": {
+        "create":                       { "type": "boolean" },
+        "annotations":                  { "type": "object" },
+        "name":                         { "type": "string" },
+        "automountServiceAccountToken": { "type": "boolean" }
+      }
+    },
+    "podAnnotations":        { "type": "object" },
+    "podLabels":             { "type": "object" },
+    "deploymentAnnotations": { "type": "object" },
+    "podSecurityContext":    { "type": "object" },
+    "securityContext":       { "type": "object" },
+    "engram": {
+      "type": "object",
+      "description": "Engram Cloud application configuration.",
+      "properties": {
+        "databaseUrl":     { "type": "string" },
+        "jwtSecret":       { "type": "string" },
+        "allowedProjects": { "type": "string" },
+        "host":            { "type": "string" },
+        "port":            { "type": "string" },
+        "insecureNoAuth":  { "type": "boolean" },
+        "adminToken":      { "type": "string", "description": "Admin token for /dashboard/admin routes (ENGRAM_CLOUD_ADMIN)." },
+        "cloudToken":      { "type": "string", "description": "Bearer token for authentication (ENGRAM_CLOUD_TOKEN)." },
+        "existingSecret":  { "type": "string" }
+      }
+    },
+    "env":     { "type": "array" },
+    "envFrom": { "type": "array" },
+    "service": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["ClusterIP", "NodePort", "LoadBalancer"]
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "annotations": { "type": "object" }
+      }
+    },
+    "ingress": {
+      "type": "object",
+      "properties": {
+        "enabled":     { "type": "boolean" },
+        "className":   { "type": "string" },
+        "annotations": { "type": "object" },
+        "hosts":       { "type": "array" },
+        "tls":         { "type": "array" }
+      }
+    },
+    "livenessProbe":  { "type": "object" },
+    "readinessProbe": { "type": "object" },
+    "startupProbe":   { "type": "object" },
+    "resources":      { "type": "object" },
+    "nodeSelector":   { "type": "object" },
+    "tolerations":    { "type": "array" },
+    "affinity":       { "type": "object" },
+    "topologySpreadConstraints": { "type": "array" },
+    "tmpVolume": {
+      "type": "object",
+      "description": "Built-in /tmp emptyDir volume for readOnlyRootFilesystem compatibility.",
+      "properties": {
+        "enabled":   { "type": "boolean" },
+        "medium":    { "type": "string" },
+        "sizeLimit": { "type": "string" }
+      }
+    },
+    "networkPolicy": {
+      "type": "object",
+      "description": "Kubernetes NetworkPolicy for Engram pods.",
+      "properties": {
+        "enabled": { "type": "boolean" }
+      }
+    },
+    "extraVolumes":       { "type": "array" },
+    "extraVolumeMounts":  { "type": "array" },
+    "extraContainers":    { "type": "array" },
+    "extraObjects":       { "type": "array" },
+    "podDisruptionBudget": {
+      "type": "object",
+      "properties": {
+        "enabled":         { "type": "boolean" },
+        "minAvailable":    { "type": "integer", "minimum": 0 },
+        "maxUnavailable":  {
+          "oneOf": [
+            { "type": "integer", "minimum": 0 },
+            { "type": "string", "pattern": "^[0-9]+%$" },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+    "autoscaling": {
+      "type": "object",
+      "properties": {
+        "enabled":                        { "type": "boolean" },
+        "minReplicas":                    { "type": "integer", "minimum": 1 },
+        "maxReplicas":                    { "type": "integer", "minimum": 1 },
+        "targetCPUUtilizationPercentage": { "type": "integer", "minimum": 1, "maximum": 100 }
+      }
+    }
+  }
+}

@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "engram.fullname" . }}
+  labels:
+    {{- include "engram.labels" . | nindent 4 }}
+data:
+  ENGRAM_CLOUD_HOST: {{ .Values.engram.host | quote }}
+  ENGRAM_PORT: {{ .Values.engram.port | quote }}
+  {{- if .Values.engram.allowedProjects }}
+  ENGRAM_CLOUD_ALLOWED_PROJECTS: {{ .Values.engram.allowedProjects | quote }}
+  {{- end }}
+  {{- if .Values.engram.insecureNoAuth }}
+  ENGRAM_CLOUD_INSECURE_NO_AUTH: "1"
+  {{- end }}

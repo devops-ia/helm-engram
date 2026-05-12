@@ -1,0 +1,90 @@
+# {{ template "chart.name" . }}
+
+{{ template "chart.description" . }}
+
+[![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/helm-engram)](https://artifacthub.io/packages/search?repo=helm-engram)
+[![Helm Lint & Test](https://github.com/devops-ia/helm-engram/actions/workflows/helm-lint-test.yml/badge.svg)](https://github.com/devops-ia/helm-engram/actions/workflows/helm-lint-test.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/devops-ia/helm-engram/blob/main/LICENSE)
+
+{{ template "chart.maintainersSection" . }}
+
+## TL;DR
+
+```console
+helm repo add helm-engram https://devops-ia.github.io/helm-engram
+helm repo update
+
+# Authenticated mode (production)
+helm install my-engram helm-engram/engram \
+  --set engram.jwtSecret="$(openssl rand -hex 32)" \
+  --set engram.cloudToken="$(openssl rand -hex 32)" \
+  --set engram.allowedProjects="my-project" \
+  --set postgresql.auth.password="$(openssl rand -hex 16)"
+```
+
+> **Local dev only:** add `--set engram.insecureNoAuth=true` and omit `cloudToken`/`jwtSecret`.
+> See the [repository README](https://github.com/devops-ia/helm-engram#authentication-modes)
+> for full auth documentation.
+
+## Prerequisites
+
+- Helm 3+
+- Kubernetes 1.25+
+
+No additional Helm repositories required — the chart ships with its own internal PostgreSQL templates.
+
+{{ template "chart.requirementsSection" . }}
+
+## Add repository
+
+```console
+helm repo add helm-engram https://devops-ia.github.io/helm-engram
+helm repo update
+```
+
+## Install chart
+
+### Bundled PostgreSQL (default)
+
+```console
+helm install my-engram helm-engram/engram \
+  --set engram.jwtSecret="<secret>" \
+  --set engram.cloudToken="<token>" \
+  --set engram.allowedProjects="my-project" \
+  --set postgresql.auth.password="<password>"
+```
+
+### External PostgreSQL
+
+```console
+helm install my-engram helm-engram/engram \
+  --set postgresql.enabled=false \
+  --set engram.databaseUrl="postgres://user:pass@host:5432/engram_cloud?sslmode=require" \
+  --set engram.jwtSecret="<secret>" \
+  --set engram.cloudToken="<token>" \
+  --set engram.allowedProjects="my-project"
+```
+
+### Values file (recommended)
+
+```console
+helm install my-engram helm-engram/engram -f my-values.yaml
+```
+
+## Upgrade
+
+```console
+helm upgrade my-engram helm-engram/engram -f my-values.yaml
+```
+
+## Uninstall
+
+```console
+helm uninstall my-engram
+```
+
+> PostgreSQL PVC is **not** deleted automatically on uninstall.
+
+{{ template "chart.valuesSection" . }}
+
+{{ template "chart.sourcesSection" . }}

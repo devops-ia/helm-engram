@@ -1,0 +1,305 @@
+# Default values for engram.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# -- Number of Engram Cloud replicas
+replicaCount: 1
+
+# -- Image registry
+image:
+  # -- Image repository. Published to GHCR via cloud-image.yml workflow
+  repository: ghcr.io/gentleman-programming/engram
+  pullPolicy: IfNotPresent
+  # -- Image tag. Overrides the image tag whose default is the chart appVersion.
+  # Managed by updatecli monitoring Gentleman-Programming/engram releases.
+  tag: "v1.15.10"
+
+# -- Registry secret names as an array
+imagePullSecrets: []
+
+# -- String to partially override engram.fullname template (will maintain the release name)
+nameOverride: ""
+
+# -- String to fully override engram.fullname template
+fullnameOverride: ""
+
+# -- Enable creation of ServiceAccount
+serviceAccount:
+  # -- Specifies whether a service account should be created
+  create: true
+  # -- Annotations to add to the service account (e.g. IAM role ARN for IRSA)
+  annotations: {}
+  # -- The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+  # -- Specifies if you don't want the kubelet to automatically mount
+  # a ServiceAccount's API credentials
+  automountServiceAccountToken: false
+
+# -- Pod annotations
+podAnnotations: {}
+
+# -- Pod labels
+podLabels: {}
+
+# -- Deployment annotations
+deploymentAnnotations: {}
+
+# -- Privilege and access control settings for the Pod (pod-level)
+# Engram Cloud runs as UID=10001 (engram user)
+podSecurityContext:
+  fsGroup: 10001
+  runAsGroup: 10001
+  runAsUser: 10001
+  runAsNonRoot: true
+
+# -- Privilege and access control settings for the container
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+# -- Engram Cloud configuration
+engram:
+  # -- Required. PostgreSQL DSN e.g. postgres://user:pass@host:5432/engram_cloud?sslmode=disable
+  databaseUrl: ""
+  # -- Required. JWT signing secret used to sign and verify tokens
+  jwtSecret: ""
+  # -- Required. Comma-separated list of allowed project names that Engram will serve.
+  # Must be set even when insecureNoAuth is true. Example: "project1,project2"
+  allowedProjects: ""
+  # -- Bind address for the HTTP server
+  host: "0.0.0.0"
+  # -- HTTP listen port
+  port: "18080"
+  # -- Disable authentication. DEV ONLY — never enable in production
+  insecureNoAuth: false
+  # -- Admin token for the dashboard /admin routes (ENGRAM_CLOUD_ADMIN).
+  # When set, grants access to /dashboard/admin. Store this in a Secret in production.
+  adminToken: ""
+  # -- Bearer token for client authentication (ENGRAM_CLOUD_TOKEN).
+  # REQUIRED when insecureNoAuth=false (production/authenticated mode).
+  # Must be an unguessable random string — use `openssl rand -hex 32`.
+  # Must be EMPTY when insecureNoAuth=true (dev-only insecure mode; the two are mutually exclusive).
+  cloudToken: ""
+  # -- Name of an existing Secret containing ENGRAM_DATABASE_URL and ENGRAM_JWT_SECRET.
+  # When set, the chart does NOT create a Secret — use this for External Secrets Operator,
+  # Sealed Secrets, Vault Agent, or any external secrets manager.
+  existingSecret: ""
+
+# -- Environment variables to configure application
+env: []
+# - name: MY_VAR
+#   value: "my-value"
+
+# -- Variables from ConfigMap or Secret
+envFrom: []
+# - configMapRef:
+#     name: my-configmap
+
+# -- Service configuration
+service:
+  # -- Kubernetes Service type
+  type: ClusterIP
+  # -- Service port (must match engram.port)
+  port: 18080
+  # -- Annotations to add to the Service
+  annotations: {}
+
+# -- Ingress configuration
+ingress:
+  # -- Enable ingress
+  enabled: false
+  # -- Ingress class name (e.g. nginx, traefik)
+  className: ""
+  # -- Ingress annotations
+  annotations: {}
+  # -- Ingress hosts
+  hosts:
+    - host: engram.local
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  # -- Ingress TLS configuration
+  tls: []
+  #  - secretName: engram-tls
+  #    hosts:
+  #      - engram.local
+
+# -- Configure liveness probe
+# Ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
+livenessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 10
+
+# -- Configure readiness probe
+readinessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 5
+
+# -- Configure startup probe. Gives the container up to 300s (30 × 10s) to start,
+# allowing time for PostgreSQL migrations on cold start
+startupProbe:
+  httpGet:
+    path: /health
+    port: http
+  periodSeconds: 10
+  failureThreshold: 30
+
+# -- Resource requests and limits
+# Ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+resources: {}
+#  requests:
+#    cpu: 100m
+#    memory: 128Mi
+#  limits:
+#    cpu: 500m
+#    memory: 256Mi
+
+# -- Node selector for pod scheduling
+nodeSelector: {}
+
+# -- Tolerations for pod scheduling
+tolerations: []
+
+# -- Affinity rules for pod scheduling
+affinity: {}
+
+# -- Topology spread constraints for pod distribution across zones/nodes
+topologySpreadConstraints: []
+
+# -- Built-in writable /tmp volume.
+# Required when securityContext.readOnlyRootFilesystem=true (chart default).
+# The Engram process needs /tmp for temporary file operations.
+# Disable only if you provide your own /tmp via extraVolumes/extraVolumeMounts.
+tmpVolume:
+  # -- Enable the built-in /tmp emptyDir volume
+  enabled: true
+  # -- Memory-backed storage medium (leave empty for disk)
+  medium: ""
+  # -- Size limit for the /tmp volume
+  sizeLimit: ""
+
+# -- NetworkPolicy configuration
+networkPolicy:
+  # -- Enable NetworkPolicy. When enabled, restricts ingress/egress for Engram pods:
+  # - Ingress: allowed on service port from ingress controller pods (if ingress.enabled)
+  #   and any pod in the release namespace
+  # - Egress: allowed to PostgreSQL on port 5432, DNS on port 53, and Kubernetes API
+  # Leave disabled if your cluster uses a different network security model.
+  enabled: false
+
+# -- Extra volumes to add to the pod
+extraVolumes: []
+# - name: tmp
+#   emptyDir: {}
+
+# -- Extra volume mounts to add to the engram container
+extraVolumeMounts: []
+# - name: tmp
+#   mountPath: /tmp
+
+# -- Extra sidecar containers to add to the pod
+extraContainers: []
+
+# -- Init containers to add to the pod (appended after the auto-generated wait-for-postgresql init container)
+initContainers: []
+
+# -- Extra Kubernetes objects to deploy with this release.
+# Useful for ExternalSecret, SealedSecret, NetworkPolicy, ServiceMonitor, etc.
+# Each entry is rendered via tpl, so Helm template functions are supported.
+extraObjects: []
+# - apiVersion: external-secrets.io/v1beta1
+#   kind: ExternalSecret
+#   metadata:
+#     name: engram-secret
+#   spec:
+#     refreshInterval: 1h
+#     secretStoreRef:
+#       name: my-store
+#       kind: SecretStore
+#     target:
+#       name: engram-existing-secret
+#     data:
+#       - secretKey: ENGRAM_DATABASE_URL
+#         remoteRef:
+#           key: engram/database-url
+#       - secretKey: ENGRAM_JWT_SECRET
+#         remoteRef:
+#           key: engram/jwt-secret
+
+# -- PodDisruptionBudget configuration
+podDisruptionBudget:
+  # -- Enable PodDisruptionBudget
+  enabled: false
+  # -- Minimum number of pods that must be available during voluntary disruptions.
+  # Mutually exclusive with maxUnavailable — only one may be set.
+  minAvailable: 1
+  # -- Maximum number of pods that may be unavailable during voluntary disruptions.
+  # Mutually exclusive with minAvailable — only one may be set. Set to null to use minAvailable.
+  maxUnavailable: ~
+
+# -- HorizontalPodAutoscaler configuration
+autoscaling:
+  # -- Enable HorizontalPodAutoscaler
+  enabled: false
+  # -- Minimum number of replicas
+  minReplicas: 1
+  # -- Maximum number of replicas
+  maxReplicas: 10
+  # -- Target CPU utilization percentage
+  targetCPUUtilizationPercentage: 80
+
+# -- Bundled PostgreSQL (internal templates using official postgres image).
+# Enable to deploy a PostgreSQL StatefulSet alongside Engram Cloud.
+# For production, set postgresql.enabled=false and configure an external PostgreSQL
+# via engram.databaseUrl or engram.existingSecret.
+postgresql:
+  # -- Enable the bundled PostgreSQL deployment.
+  # When true, ENGRAM_DATABASE_URL is auto-configured from auth values below.
+  # When false, you must provide engram.databaseUrl or engram.existingSecret.
+  enabled: true
+  # -- Wait for PostgreSQL to be ready before starting Engram.
+  # Adds an init container that polls port 5432 with nc.
+  # Set disabled: true only if you manage readiness externally.
+  waitForReady:
+    disabled: false
+  # -- PostgreSQL container image (official Docker Hub image)
+  image:
+    registry: docker.io
+    repository: postgres
+    tag: "16-alpine"
+    pullPolicy: IfNotPresent
+  auth:
+    # -- PostgreSQL username for Engram Cloud
+    username: engram
+    # -- PostgreSQL password. Change in production!
+    password: "engram_change_me"
+    # -- PostgreSQL database name
+    database: engram_cloud
+  # -- Service configuration
+  service:
+    # -- PostgreSQL service port
+    port: 5432
+  # -- Persistence configuration
+  persistence:
+    # -- Enable persistent storage for PostgreSQL data
+    enabled: true
+    # -- Storage size
+    size: 1Gi
+    # -- Storage class (empty = cluster default)
+    storageClass: ""
+    # -- Access mode
+    accessMode: ReadWriteOnce
+  # -- Resource requests and limits for PostgreSQL container
+  resources: {}

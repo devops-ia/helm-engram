@@ -1,0 +1,33 @@
+sources:
+  engram:
+    kind: githubrelease
+    spec:
+      owner: "Gentleman-Programming"
+      repository: "engram"
+      token: {{ requiredEnv "GITHUB_TOKEN" }}
+      versionFilter:
+        kind: semver
+        pattern: ">=v1.0.0"
+conditions: {}
+targets:
+  imageTag:
+    name: bump engram image tag in values.yaml
+    kind: helmchart
+    spec:
+      name: charts/engram
+      file: values.yaml
+      key: $.image.tag
+    sourceid: engram
+  appVersion:
+    name: bump appVersion in Chart.yaml
+    kind: helmchart
+    spec:
+      name: charts/engram
+      file: Chart.yaml
+      key: $.appVersion
+    sourceid: engram
+  # NOTE: chart version ($.version) is NOT managed here.
+  # When a new Engram release is detected, the helm-check-engram-release.yml workflow
+  # resets the chart version to {major}.{minor}.0 (e.g., v1.16.0 → 1.16.0).
+  # For chart-only changes, bump the patch manually: 1.16.0 → 1.16.1 → 1.16.2
+  # using: npm run version:bump

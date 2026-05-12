@@ -1,0 +1,150 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "engram.fullname" . }}
+  labels:
+    {{- include "engram.labels" . | nindent 4 }}
+  {{- with .Values.deploymentAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "engram.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "engram.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "engram.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- $initContainers := .Values.initContainers | default list }}
+      {{- if and .Values.postgresql.enabled (not .Values.postgresql.waitForReady.disabled) }}
+      {{- $waitInit := dict "name" "wait-for-postgresql" "image" "busybox:1.36" "command" (list "sh" "-c" (printf "until nc -z %s-postgresql 5432; do echo waiting for postgresql; sleep 2; done" .Release.Name)) "securityContext" (dict "runAsNonRoot" true "runAsUser" 65534 "allowPrivilegeEscalation" false "capabilities" (dict "drop" (list "ALL"))) }}
+      {{- $initContainers = prepend $initContainers $waitInit }}
+      {{- end }}
+      {{- with $initContainers }}
+      initContainers:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - engram
+          args:
+            - cloud
+            - serve
+          ports:
+            - name: http
+              containerPort: {{ .Values.engram.port | int }}
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: {{ include "engram.fullname" . }}
+            {{- with .Values.envFrom }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          env:
+            - name: ENGRAM_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "engram.secretName" . }}
+                  key: ENGRAM_DATABASE_URL
+            - name: ENGRAM_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "engram.secretName" . }}
+                  key: ENGRAM_JWT_SECRET
+            - name: ENGRAM_CLOUD_ADMIN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "engram.secretName" . }}
+                  key: ENGRAM_CLOUD_ADMIN
+                  optional: true
+            - name: ENGRAM_CLOUD_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "engram.secretName" . }}
+                  key: ENGRAM_CLOUD_TOKEN
+                  optional: true
+            {{- with .Values.env }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- with .Values.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.startupProbe }}
+          startupProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if or .Values.tmpVolume.enabled .Values.extraVolumeMounts }}
+          volumeMounts:
+            {{- if .Values.tmpVolume.enabled }}
+            - name: tmp
+              mountPath: /tmp
+            {{- end }}
+            {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- end }}
+        {{- with .Values.extraContainers }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if or .Values.tmpVolume.enabled .Values.extraVolumes }}
+      volumes:
+        {{- if .Values.tmpVolume.enabled }}
+        {{- $emptyDir := dict }}
+        {{- if .Values.tmpVolume.medium }}{{- $emptyDir = set $emptyDir "medium" .Values.tmpVolume.medium }}{{- end }}
+        {{- if .Values.tmpVolume.sizeLimit }}{{- $emptyDir = set $emptyDir "sizeLimit" .Values.tmpVolume.sizeLimit }}{{- end }}
+        - name: tmp
+          emptyDir: {{ toYaml $emptyDir | trim }}
+        {{- end }}
+        {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- end }}

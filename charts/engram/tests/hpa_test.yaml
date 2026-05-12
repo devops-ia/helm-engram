@@ -1,0 +1,60 @@
+suite: HPA tests
+templates:
+  - templates/hpa.yaml
+
+tests:
+  - it: should NOT create an HPA when autoscaling is disabled (default)
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should create an HPA when autoscaling is enabled
+    set:
+      autoscaling.enabled: true
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: kind
+          value: HorizontalPodAutoscaler
+
+  - it: should set minReplicas and maxReplicas from values
+    set:
+      autoscaling.enabled: true
+      autoscaling.minReplicas: 2
+      autoscaling.maxReplicas: 8
+    asserts:
+      - equal:
+          path: spec.minReplicas
+          value: 2
+      - equal:
+          path: spec.maxReplicas
+          value: 8
+
+  - it: should set targetCPUUtilizationPercentage from values
+    set:
+      autoscaling.enabled: true
+      autoscaling.targetCPUUtilizationPercentage: 70
+    asserts:
+      - equal:
+          path: spec.metrics[0].resource.target.averageUtilization
+          value: 70
+
+  - it: should target the correct deployment
+    set:
+      autoscaling.enabled: true
+    asserts:
+      - equal:
+          path: spec.scaleTargetRef.name
+          value: RELEASE-NAME-engram
+      - equal:
+          path: spec.scaleTargetRef.kind
+          value: Deployment
+
+  - it: should have standard labels
+    set:
+      autoscaling.enabled: true
+    asserts:
+      - equal:
+          path: metadata.labels["app.kubernetes.io/name"]
+          value: engram

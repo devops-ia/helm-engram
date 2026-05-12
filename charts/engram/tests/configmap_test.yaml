@@ -1,0 +1,74 @@
+suite: configmap tests
+templates:
+  - templates/configmap.yaml
+
+tests:
+  - it: should create a ConfigMap
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: kind
+          value: ConfigMap
+
+  - it: should set ENGRAM_PORT from values
+    asserts:
+      - equal:
+          path: data.ENGRAM_PORT
+          value: "18080"
+
+  - it: should set ENGRAM_CLOUD_HOST from values
+    asserts:
+      - equal:
+          path: data.ENGRAM_CLOUD_HOST
+          value: "0.0.0.0"
+
+  - it: should override ENGRAM_PORT when set
+    set:
+      engram.port: "9090"
+    asserts:
+      - equal:
+          path: data.ENGRAM_PORT
+          value: "9090"
+
+  - it: should override ENGRAM_CLOUD_HOST when set
+    set:
+      engram.host: "127.0.0.1"
+    asserts:
+      - equal:
+          path: data.ENGRAM_CLOUD_HOST
+          value: "127.0.0.1"
+
+  - it: should NOT include ENGRAM_CLOUD_ALLOWED_PROJECTS when allowedProjects is empty
+    asserts:
+      - notExists:
+          path: data.ENGRAM_CLOUD_ALLOWED_PROJECTS
+
+  - it: should include ENGRAM_CLOUD_ALLOWED_PROJECTS when allowedProjects is set
+    set:
+      engram.allowedProjects: "project1,project2"
+    asserts:
+      - equal:
+          path: data.ENGRAM_CLOUD_ALLOWED_PROJECTS
+          value: "project1,project2"
+
+  - it: should NOT include ENGRAM_CLOUD_INSECURE_NO_AUTH when insecureNoAuth is false
+    set:
+      engram.insecureNoAuth: false
+    asserts:
+      - notExists:
+          path: data.ENGRAM_CLOUD_INSECURE_NO_AUTH
+
+  - it: should set ENGRAM_CLOUD_INSECURE_NO_AUTH to 1 when insecureNoAuth is true
+    set:
+      engram.insecureNoAuth: true
+    asserts:
+      - equal:
+          path: data.ENGRAM_CLOUD_INSECURE_NO_AUTH
+          value: "1"
+
+  - it: should have standard labels
+    asserts:
+      - equal:
+          path: metadata.labels["app.kubernetes.io/name"]
+          value: engram

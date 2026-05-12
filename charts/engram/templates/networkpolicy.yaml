@@ -1,0 +1,70 @@
+{{- if .Values.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "engram.fullname" . }}
+  labels:
+    {{- include "engram.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "engram.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow traffic on the Engram HTTP port from any pod in the same namespace
+    - ports:
+        - port: {{ .Values.service.port }}
+          protocol: TCP
+      from:
+        - podSelector: {}
+    {{- if .Values.ingress.enabled }}
+    # Allow ingress controller traffic (standard nginx/traefik labels)
+    - ports:
+        - port: {{ .Values.service.port }}
+          protocol: TCP
+      from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: ingress-nginx
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: traefik
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: traefik
+    {{- end }}
+  egress:
+    # Allow DNS resolution (UDP + TCP)
+    - ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    {{- if .Values.postgresql.enabled }}
+    # Allow egress to the bundled PostgreSQL StatefulSet
+    - ports:
+        - port: {{ .Values.postgresql.service.port }}
+          protocol: TCP
+      to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: postgresql
+              app.kubernetes.io/instance: {{ .Release.Name }}
+    {{- else }}
+    # Allow egress to external PostgreSQL (any destination, restricted by port)
+    - ports:
+        - port: 5432
+          protocol: TCP
+    {{- end }}
+    # Allow Kubernetes API server access (for service account token refresh)
+    - ports:
+        - port: 443
+          protocol: TCP
+        - port: 6443
+          protocol: TCP
+{{- end }}
