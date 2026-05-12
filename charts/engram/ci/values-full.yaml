@@ -5,6 +5,7 @@ engram:
   databaseUrl: "postgres://engram:test@localhost:5432/engram_cloud?sslmode=disable"
   jwtSecret: "ci-test-jwt-secret-do-not-use-in-production"
   allowedProjects: "project1,project2"
+  insecureNoAuth: true
 
 podAnnotations:
   test-annotation: "true"

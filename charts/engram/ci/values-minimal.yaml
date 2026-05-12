@@ -1,4 +1,5 @@
 # Minimal CI values — uses bundled PostgreSQL (postgresql.enabled=true by default)
-# Only jwtSecret is required when using the bundled database
+# insecureNoAuth=true disables cloud token auth (CI-only, never use in production)
 engram:
   jwtSecret: "ci-test-jwt-secret-do-not-use-in-production"
+  insecureNoAuth: true
