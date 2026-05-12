@@ -7,3 +7,5 @@ remote: origin
 target-branch: main
 validate-maintainers: false
 validate-yaml: true
+helm-repo-extra-args:
+  - "bitnami=https://charts.bitnami.com/bitnami"
