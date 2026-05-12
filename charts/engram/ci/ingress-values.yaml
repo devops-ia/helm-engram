@@ -1,6 +1,5 @@
-# Ingress CI values
+# Ingress CI values — databaseUrl auto-generated from postgresql.auth values
 engram:
-  databaseUrl: "postgres://engram:test@localhost:5432/engram_cloud?sslmode=disable"
   jwtSecret: "ci-test-jwt-secret-do-not-use-in-production"
   insecureNoAuth: true
 

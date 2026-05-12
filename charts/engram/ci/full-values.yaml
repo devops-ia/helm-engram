@@ -1,8 +1,8 @@
 # Full CI values — all optional features enabled
-replicaCount: 2
+# databaseUrl omitted: auto-generated from postgresql.auth values
+replicaCount: 1
 
 engram:
-  databaseUrl: "postgres://engram:test@localhost:5432/engram_cloud?sslmode=disable"
   jwtSecret: "ci-test-jwt-secret-do-not-use-in-production"
   allowedProjects: "project1,project2"
   insecureNoAuth: true
