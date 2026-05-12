@@ -225,21 +225,26 @@ autoscaling:
   # -- Target CPU utilization percentage
   targetCPUUtilizationPercentage: 80
 
-# -- Bundled PostgreSQL subchart (bitnami/postgresql)
-# Enable to deploy a PostgreSQL instance alongside Engram Cloud.
+# -- Bundled PostgreSQL (internal templates using official postgres image).
+# Enable to deploy a PostgreSQL StatefulSet alongside Engram Cloud.
 # For production, set postgresql.enabled=false and configure an external PostgreSQL
 # via engram.databaseUrl or engram.existingSecret.
-# Ref: https://artifacthub.io/packages/helm/bitnami/postgresql
 postgresql:
-  # -- Enable the bundled PostgreSQL subchart.
-  # When true, ENGRAM_DATABASE_URL is auto-configured from the subchart values.
+  # -- Enable the bundled PostgreSQL deployment.
+  # When true, ENGRAM_DATABASE_URL is auto-configured from auth values below.
   # When false, you must provide engram.databaseUrl or engram.existingSecret.
   enabled: true
   # -- Wait for PostgreSQL to be ready before starting Engram.
-  # Adds an init container that uses nc to check port 5432.
+  # Adds an init container that polls port 5432 with nc.
   # Set disabled: true only if you manage readiness externally.
   waitForReady:
     disabled: false
+  # -- PostgreSQL container image (official Docker Hub image)
+  image:
+    registry: docker.io
+    repository: postgres
+    tag: "16-alpine"
+    pullPolicy: IfNotPresent
   auth:
     # -- PostgreSQL username for Engram Cloud
     username: engram
@@ -247,9 +252,19 @@ postgresql:
     password: "engram_change_me"
     # -- PostgreSQL database name
     database: engram_cloud
-  primary:
-    persistence:
-      # -- Enable persistent storage for PostgreSQL
-      enabled: true
-      # -- Storage size for PostgreSQL data
-      size: 1Gi
+  # -- Service configuration
+  service:
+    # -- PostgreSQL service port
+    port: 5432
+  # -- Persistence configuration
+  persistence:
+    # -- Enable persistent storage for PostgreSQL data
+    enabled: true
+    # -- Storage size
+    size: 1Gi
+    # -- Storage class (empty = cluster default)
+    storageClass: ""
+    # -- Access mode
+    accessMode: ReadWriteOnce
+  # -- Resource requests and limits for PostgreSQL container
+  resources: {}
