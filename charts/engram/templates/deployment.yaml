@@ -75,6 +75,18 @@ spec:
                 secretKeyRef:
                   name: {{ include "engram.secretName" . }}
                   key: ENGRAM_JWT_SECRET
+            - name: ENGRAM_CLOUD_ADMIN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "engram.secretName" . }}
+                  key: ENGRAM_CLOUD_ADMIN
+                  optional: true
+            - name: ENGRAM_CLOUD_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "engram.secretName" . }}
+                  key: ENGRAM_CLOUD_TOKEN
+                  optional: true
             {{- with .Values.env }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
@@ -94,9 +106,15 @@ spec:
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          {{- with .Values.extraVolumeMounts }}
+          {{- if or .Values.tmpVolume.enabled .Values.extraVolumeMounts }}
           volumeMounts:
+            {{- if .Values.tmpVolume.enabled }}
+            - name: tmp
+              mountPath: /tmp
+            {{- end }}
+            {{- with .Values.extraVolumeMounts }}
             {{- toYaml . | nindent 12 }}
+            {{- end }}
           {{- end }}
         {{- with .Values.extraContainers }}
         {{- toYaml . | nindent 8 }}
@@ -117,7 +135,16 @@ spec:
       topologySpreadConstraints:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.extraVolumes }}
+      {{- if or .Values.tmpVolume.enabled .Values.extraVolumes }}
       volumes:
+        {{- if .Values.tmpVolume.enabled }}
+        {{- $emptyDir := dict }}
+        {{- if .Values.tmpVolume.medium }}{{- $emptyDir = set $emptyDir "medium" .Values.tmpVolume.medium }}{{- end }}
+        {{- if .Values.tmpVolume.sizeLimit }}{{- $emptyDir = set $emptyDir "sizeLimit" .Values.tmpVolume.sizeLimit }}{{- end }}
+        - name: tmp
+          emptyDir: {{ toYaml $emptyDir | trim }}
+        {{- end }}
+        {{- with .Values.extraVolumes }}
         {{- toYaml . | nindent 8 }}
+        {{- end }}
       {{- end }}

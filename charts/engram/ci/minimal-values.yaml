@@ -3,3 +3,5 @@
 engram:
   jwtSecret: "ci-test-jwt-secret-do-not-use-in-production"
   insecureNoAuth: true
+  # allowedProjects is required even in insecureNoAuth mode — binary exits immediately when empty
+  allowedProjects: "project1,project2"

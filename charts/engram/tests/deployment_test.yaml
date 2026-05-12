@@ -196,3 +196,97 @@ tests:
       - equal:
           path: spec.template.spec.containers[0].envFrom[0].configMapRef.name
           value: RELEASE-NAME-engram
+
+  - it: should inject ENGRAM_CLOUD_ADMIN env var from secret (optional)
+    template: templates/deployment.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].env[2].name
+          value: ENGRAM_CLOUD_ADMIN
+      - equal:
+          path: spec.template.spec.containers[0].env[2].valueFrom.secretKeyRef.key
+          value: ENGRAM_CLOUD_ADMIN
+      - equal:
+          path: spec.template.spec.containers[0].env[2].valueFrom.secretKeyRef.optional
+          value: true
+
+  - it: should inject ENGRAM_CLOUD_TOKEN env var from secret (optional)
+    template: templates/deployment.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].env[3].name
+          value: ENGRAM_CLOUD_TOKEN
+      - equal:
+          path: spec.template.spec.containers[0].env[3].valueFrom.secretKeyRef.key
+          value: ENGRAM_CLOUD_TOKEN
+      - equal:
+          path: spec.template.spec.containers[0].env[3].valueFrom.secretKeyRef.optional
+          value: true
+
+  - it: should use existingSecret name for ENGRAM_CLOUD_ADMIN env var
+    template: templates/deployment.yaml
+    set:
+      engram.existingSecret: my-external-secret
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].env[2].valueFrom.secretKeyRef.name
+          value: my-external-secret
+
+  - it: should mount /tmp emptyDir volume by default
+    template: templates/deployment.yaml
+    asserts:
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: tmp
+            emptyDir: {}
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: tmp
+            mountPath: /tmp
+
+  - it: should NOT mount /tmp when tmpVolume.enabled is false
+    template: templates/deployment.yaml
+    set:
+      tmpVolume.enabled: false
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: tmp
+            mountPath: /tmp
+
+  - it: should add wait-for-postgresql init container when postgresql.enabled is true
+    template: templates/deployment.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[0].name
+          value: wait-for-postgresql
+      - equal:
+          path: spec.template.spec.initContainers[0].image
+          value: busybox:1.36
+
+  - it: should NOT add wait-for-postgresql init container when postgresql.enabled is false
+    template: templates/deployment.yaml
+    set:
+      postgresql.enabled: false
+      engram.databaseUrl: "postgres://user:pass@external:5432/db"
+    asserts:
+      - notExists:
+          path: spec.template.spec.initContainers
+
+  - it: should NOT add wait-for-postgresql init container when waitForReady.disabled is true
+    template: templates/deployment.yaml
+    set:
+      postgresql.waitForReady.disabled: true
+    asserts:
+      - notExists:
+          path: spec.template.spec.initContainers
+
+  - it: should set runAsNonRoot on podSecurityContext by default
+    template: templates/deployment.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.securityContext.runAsNonRoot
+          value: true

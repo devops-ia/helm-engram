@@ -4,7 +4,7 @@
 > context and observations across sessions and team members.
 
 [![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/helm-engram)](https://artifacthub.io/packages/search?repo=helm-engram)
-[![Helm Lint & Test](https://github.com/amartingarcia/helm-engram/actions/workflows/helm-lint-test.yml/badge.svg)](https://github.com/amartingarcia/helm-engram/actions/workflows/helm-lint-test.yml)
+[![Helm Lint & Test](https://github.com/devops-ia/helm-engram/actions/workflows/helm-lint-test.yml/badge.svg)](https://github.com/devops-ia/helm-engram/actions/workflows/helm-lint-test.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
@@ -60,7 +60,7 @@ This chart deploys Engram Cloud to any Kubernetes cluster with:
 │                                                             │
 │  ┌──────────────────┐        ┌──────────────────────────┐  │
 │  │  Engram Cloud    │        │  PostgreSQL              │  │
-│  │  Deployment      │──────▶ │  (bitnami subchart or    │  │
+│  │  Deployment      │──────▶ │  (bundled StatefulSet or │  │
 │  │  port: 18080     │        │   external DSN)          │  │
 │  │  GET /health     │        └──────────────────────────┘  │
 │  └────────┬─────────┘                                       │
@@ -81,7 +81,7 @@ This chart deploys Engram Cloud to any Kubernetes cluster with:
 - Runs as UID `10001` (non-root), read-only root filesystem
 - Command: `engram cloud serve`
 - Health endpoint: `GET /health` → `{"status":"ok","service":"engram-cloud"}`
-- Required env: `ENGRAM_DATABASE_URL`, `ENGRAM_JWT_SECRET`
+- Required env: `ENGRAM_DATABASE_URL`, `ENGRAM_JWT_SECRET`, `ENGRAM_CLOUD_ALLOWED_PROJECTS`
 
 ---
 
@@ -106,16 +106,18 @@ helm repo update
 
 ```bash
 # Add this chart repository
-helm repo add helm-engram https://amartingarcia.github.io/helm-engram
+helm repo add helm-engram https://devops-ia.github.io/helm-engram
 helm repo update
 
 # Install with bundled PostgreSQL and a JWT secret
 helm install engram helm-engram/engram \
-  --set engram.jwtSecret="change-me-in-production"
+  --set engram.jwtSecret="change-me-in-production" \
+  --set engram.allowedProjects="my-project"
 ```
 
 That's it. The bundled PostgreSQL starts automatically and `ENGRAM_DATABASE_URL` is
-auto-configured. Change the password and JWT secret before using in production.
+auto-configured. Set `allowedProjects` to your project name(s), and change the password
+and JWT secret before using in production.
 
 ---
 
@@ -129,6 +131,7 @@ PostgreSQL is enabled by default (`postgresql.enabled: true`). The chart auto-ge
 ```bash
 helm install engram helm-engram/engram \
   --set engram.jwtSecret="my-jwt-secret" \
+  --set engram.allowedProjects="my-project" \
   --set postgresql.auth.password="my-pg-password"
 ```
 
@@ -142,8 +145,9 @@ To customise PostgreSQL storage:
 ```bash
 helm install engram helm-engram/engram \
   --set engram.jwtSecret="my-jwt-secret" \
+  --set engram.allowedProjects="my-project" \
   --set postgresql.auth.password="my-pg-password" \
-  --set postgresql.primary.persistence.size=10Gi
+  --set postgresql.persistence.size=10Gi
 ```
 
 ### With external PostgreSQL
@@ -154,7 +158,8 @@ Disable the subchart and supply your own DSN:
 helm install engram helm-engram/engram \
   --set postgresql.enabled=false \
   --set engram.databaseUrl="postgres://user:pass@my-db.example.com:5432/engram_cloud?sslmode=require" \
-  --set engram.jwtSecret="my-jwt-secret"
+  --set engram.jwtSecret="my-jwt-secret" \
+  --set engram.allowedProjects="my-project"
 ```
 
 ### With External Secrets Operator
@@ -195,7 +200,7 @@ Run `helm show values helm-engram/engram` for the full annotated values file.
 | `engram.databaseUrl` | PostgreSQL DSN. Auto-set when `postgresql.enabled=true`. | `""` |
 | `engram.jwtSecret` | JWT signing secret. **Required in production.** | `""` |
 | `engram.existingSecret` | Use an existing Secret instead of creating one. | `""` |
-| `engram.allowedProjects` | Comma-separated list of allowed project names. Empty = all. | `""` |
+| `engram.allowedProjects` | **Required.** Comma-separated list of allowed project names. Must be set even in insecure mode. | `""` |
 | `engram.host` | HTTP bind address | `"0.0.0.0"` |
 | `engram.port` | HTTP listen port | `"18080"` |
 | `engram.insecureNoAuth` | Disable authentication. **Never use in production.** | `false` |
@@ -208,8 +213,8 @@ Run `helm show values helm-engram/engram` for the full annotated values file.
 | `postgresql.auth.username` | DB username | `engram` |
 | `postgresql.auth.password` | DB password. **Change in production!** | `engram_change_me` |
 | `postgresql.auth.database` | DB name | `engram_cloud` |
-| `postgresql.primary.persistence.enabled` | Enable PVC for PostgreSQL data | `true` |
-| `postgresql.primary.persistence.size` | PVC size | `1Gi` |
+| `postgresql.persistence.enabled` | Enable PVC for PostgreSQL data | `true` |
+| `postgresql.persistence.size` | PVC size | `1Gi` |
 
 All other `postgresql.*` values are passed through to the
 [bitnami/postgresql](https://artifacthub.io/packages/helm/bitnami/postgresql) subchart.
@@ -367,8 +372,7 @@ helm upgrade engram helm-engram/engram \
   --set image.tag=vX.Y.Z
 ```
 
-Check the [CHANGELOG](CHANGELOG.md) and upstream
-[Engram releases](https://github.com/Gentleman-Programming/engram/releases) before upgrading.
+Check the upstream [Engram releases](https://github.com/Gentleman-Programming/engram/releases) for breaking changes before upgrading.
 
 ---
 
@@ -401,14 +405,14 @@ helm plugin install https://github.com/helm-unittest/helm-unittest
 # Lint
 helm lint charts/engram/
 
-# Unit tests (52 tests across 6 suites)
+# Unit tests (62 tests across 6 suites)
 helm unittest charts/engram/
 
 # Smoke test — minimal (bundled PG)
-helm template engram charts/engram/ -f charts/engram/ci/values-minimal.yaml
+helm template engram charts/engram/ -f charts/engram/ci/minimal-values.yaml
 
 # Smoke test — full (HPA + PDB + Ingress + resources)
-helm template engram charts/engram/ -f charts/engram/ci/values-full.yaml
+helm template engram charts/engram/ -f charts/engram/ci/full-values.yaml
 
 # npm shortcuts
 npm run lint
@@ -435,6 +439,7 @@ MIT — see [LICENSE](LICENSE).
 ## Links
 
 - [Engram upstream repository](https://github.com/Gentleman-Programming/engram)
-- [Bitnami PostgreSQL chart](https://artifacthub.io/packages/helm/bitnami/postgresql)
+- [helm-engram repository](https://github.com/devops-ia/helm-engram)
+- [Artifact Hub](https://artifacthub.io/packages/search?repo=helm-engram)
 - [Helm documentation](https://helm.sh/docs/)
 - [UpdateCLI](https://www.updatecli.io/)

@@ -7,7 +7,7 @@ appVersion: v1.15.10
 home: https://github.com/Gentleman-Programming/engram
 sources:
   - https://github.com/Gentleman-Programming/engram
-  - https://github.com/amartingarcia/helm-engram
+  - https://github.com/devops-ia/helm-engram
 maintainers:
   - name: amartingarcia
     email: adrianmg231189@gmail.com
@@ -21,3 +21,25 @@ keywords:
   - mcp
   - agent
   - golang
+annotations:
+  artifacthub.io/license: MIT
+  artifacthub.io/category: ai-ml
+  artifacthub.io/operator: "false"
+  artifacthub.io/prerelease: "false"
+  artifacthub.io/changes: |
+    - kind: added
+      description: "Built-in /tmp emptyDir volume for readOnlyRootFilesystem compatibility (tmpVolume.enabled)"
+    - kind: added
+      description: "ENGRAM_CLOUD_ADMIN support via engram.adminToken (dashboard /admin access)"
+    - kind: added
+      description: "ENGRAM_CLOUD_TOKEN support via engram.cloudToken (bearer token auth)"
+    - kind: added
+      description: "Optional NetworkPolicy template (networkPolicy.enabled)"
+    - kind: added
+      description: "PDB maxUnavailable option, mutually exclusive with minAvailable"
+    - kind: added
+      description: "runAsNonRoot: true in podSecurityContext"
+    - kind: fixed
+      description: "CI: minimal-values.yaml was missing allowedProjects (caused silent crash on install)"
+    - kind: changed
+      description: "CI: helm unittest runs before ct lint and ct install"

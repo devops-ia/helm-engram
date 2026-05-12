@@ -46,6 +46,8 @@
         "host":            { "type": "string" },
         "port":            { "type": "string" },
         "insecureNoAuth":  { "type": "boolean" },
+        "adminToken":      { "type": "string", "description": "Admin token for /dashboard/admin routes (ENGRAM_CLOUD_ADMIN)." },
+        "cloudToken":      { "type": "string", "description": "Bearer token for authentication (ENGRAM_CLOUD_TOKEN)." },
         "existingSecret":  { "type": "string" }
       }
     },
@@ -84,6 +86,22 @@
     "tolerations":    { "type": "array" },
     "affinity":       { "type": "object" },
     "topologySpreadConstraints": { "type": "array" },
+    "tmpVolume": {
+      "type": "object",
+      "description": "Built-in /tmp emptyDir volume for readOnlyRootFilesystem compatibility.",
+      "properties": {
+        "enabled":   { "type": "boolean" },
+        "medium":    { "type": "string" },
+        "sizeLimit": { "type": "string" }
+      }
+    },
+    "networkPolicy": {
+      "type": "object",
+      "description": "Kubernetes NetworkPolicy for Engram pods.",
+      "properties": {
+        "enabled": { "type": "boolean" }
+      }
+    },
     "extraVolumes":       { "type": "array" },
     "extraVolumeMounts":  { "type": "array" },
     "extraContainers":    { "type": "array" },
@@ -91,8 +109,15 @@
     "podDisruptionBudget": {
       "type": "object",
       "properties": {
-        "enabled":      { "type": "boolean" },
-        "minAvailable": { "type": "integer", "minimum": 0 }
+        "enabled":         { "type": "boolean" },
+        "minAvailable":    { "type": "integer", "minimum": 0 },
+        "maxUnavailable":  {
+          "oneOf": [
+            { "type": "integer", "minimum": 0 },
+            { "type": "string", "pattern": "^[0-9]+%$" },
+            { "type": "null" }
+          ]
+        }
       }
     },
     "autoscaling": {

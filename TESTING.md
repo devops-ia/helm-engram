@@ -42,19 +42,19 @@ Commit the updated `charts/engram/tests/__snapshot__/` files.
 helm lint charts/engram
 
 # With CI values
-helm lint charts/engram -f charts/engram/ci/values-minimal.yaml
-helm lint charts/engram -f charts/engram/ci/values-full.yaml
-helm lint charts/engram -f charts/engram/ci/values-ingress.yaml
+helm lint charts/engram -f charts/engram/ci/minimal-values.yaml
+helm lint charts/engram -f charts/engram/ci/full-values.yaml
+helm lint charts/engram -f charts/engram/ci/ingress-values.yaml
 ```
 
 ## Run template smoke tests
 
 ```bash
 # Minimal — verify basic rendering
-helm template engram charts/engram -f charts/engram/ci/values-minimal.yaml
+helm template engram charts/engram -f charts/engram/ci/minimal-values.yaml
 
 # Full — verify HPA, PDB, Ingress, resources
-helm template engram charts/engram -f charts/engram/ci/values-full.yaml
+helm template engram charts/engram -f charts/engram/ci/full-values.yaml
 
 # Verify existingSecret skips Secret creation
 helm template engram charts/engram \

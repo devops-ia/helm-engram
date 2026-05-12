@@ -1,0 +1,66 @@
+suite: PDB tests
+templates:
+  - templates/pdb.yaml
+
+tests:
+  - it: should NOT create a PDB when disabled (default)
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should create a PDB when enabled
+    set:
+      podDisruptionBudget.enabled: true
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: kind
+          value: PodDisruptionBudget
+
+  - it: should use minAvailable by default when PDB is enabled
+    set:
+      podDisruptionBudget.enabled: true
+      podDisruptionBudget.minAvailable: 1
+    asserts:
+      - equal:
+          path: spec.minAvailable
+          value: 1
+      - notExists:
+          path: spec.maxUnavailable
+
+  - it: should use maxUnavailable when set (and default minAvailable applies)
+    set:
+      podDisruptionBudget.enabled: true
+      podDisruptionBudget.maxUnavailable: 1
+    asserts:
+      - equal:
+          path: spec.maxUnavailable
+          value: 1
+      - notExists:
+          path: spec.minAvailable
+
+  - it: should support percentage string for maxUnavailable
+    set:
+      podDisruptionBudget.enabled: true
+      podDisruptionBudget.maxUnavailable: "25%"
+    asserts:
+      - equal:
+          path: spec.maxUnavailable
+          value: "25%"
+
+  - it: should match pod selector labels
+    set:
+      podDisruptionBudget.enabled: true
+    asserts:
+      - equal:
+          path: spec.selector.matchLabels["app.kubernetes.io/name"]
+          value: engram
+
+  - it: should have standard labels
+    set:
+      podDisruptionBudget.enabled: true
+    asserts:
+      - equal:
+          path: metadata.labels["app.kubernetes.io/name"]
+          value: engram
