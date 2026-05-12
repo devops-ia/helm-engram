@@ -181,6 +181,9 @@ extraVolumeMounts: []
 # -- Extra sidecar containers to add to the pod
 extraContainers: []
 
+# -- Init containers to add to the pod (appended after the auto-generated wait-for-postgresql init container)
+initContainers: []
+
 # -- Extra Kubernetes objects to deploy with this release.
 # Useful for ExternalSecret, SealedSecret, NetworkPolicy, ServiceMonitor, etc.
 # Each entry is rendered via tpl, so Helm template functions are supported.
@@ -232,6 +235,11 @@ postgresql:
   # When true, ENGRAM_DATABASE_URL is auto-configured from the subchart values.
   # When false, you must provide engram.databaseUrl or engram.existingSecret.
   enabled: true
+  # -- Wait for PostgreSQL to be ready before starting Engram.
+  # Adds an init container that uses nc to check port 5432.
+  # Set disabled: true only if you manage readiness externally.
+  waitForReady:
+    disabled: false
   auth:
     # -- PostgreSQL username for Engram Cloud
     username: engram

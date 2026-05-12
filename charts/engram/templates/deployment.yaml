@@ -34,6 +34,15 @@ spec:
       serviceAccountName: {{ include "engram.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- $initContainers := .Values.initContainers | default list }}
+      {{- if and .Values.postgresql.enabled (not .Values.postgresql.waitForReady.disabled) }}
+      {{- $waitInit := dict "name" "wait-for-postgresql" "image" "busybox:1.36" "command" (list "sh" "-c" (printf "until nc -z %s-postgresql 5432; do echo waiting for postgresql; sleep 2; done" .Release.Name)) "securityContext" (dict "runAsNonRoot" true "runAsUser" 65534 "allowPrivilegeEscalation" false "capabilities" (dict "drop" (list "ALL"))) }}
+      {{- $initContainers = prepend $initContainers $waitInit }}
+      {{- end }}
+      {{- with $initContainers }}
+      initContainers:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - name: {{ .Chart.Name }}
           securityContext:
