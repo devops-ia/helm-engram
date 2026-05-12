@@ -19,5 +19,3 @@ ci/
 tests/
 # Documentation (keep README.md)
 TESTING.md
-# Tarballs
-*.tgz
