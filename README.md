@@ -1,7 +1,8 @@
 # helm-engram
 
-> Helm chart for **Engram Cloud** — AI-powered persistent memory server that lets LLM agents share
-> context and observations across sessions and team members.
+> Community-maintained Helm chart for **[Engram Cloud](https://github.com/Gentleman-Programming/engram)** —
+> the AI-powered persistent memory server that lets LLM agents share context and observations across
+> sessions and team members.
 
 [![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/helm-engram)](https://artifacthub.io/packages/search?repo=helm-engram)
 [![Helm Lint & Test](https://github.com/devops-ia/helm-engram/actions/workflows/helm-lint-test.yml/badge.svg)](https://github.com/devops-ia/helm-engram/actions/workflows/helm-lint-test.yml)
@@ -9,95 +10,65 @@
 
 ---
 
-## Table of Contents
+## What is this repository?
 
-- [Overview](#overview)
-- [Architecture](#architecture)
-- [Prerequisites](#prerequisites)
-- [Quick Start](#quick-start)
-- [Installation](#installation)
-  - [With bundled PostgreSQL (default)](#with-bundled-postgresql-default)
-  - [With external PostgreSQL](#with-external-postgresql)
-  - [With External Secrets Operator](#with-external-secrets-operator)
-- [Configuration Reference](#configuration-reference)
-  - [Engram Cloud](#engram-cloud-settings)
-  - [PostgreSQL subchart](#postgresql-subchart)
-  - [Ingress](#ingress)
-  - [Autoscaling](#autoscaling)
-  - [Extra Objects](#extra-objects)
-- [Secret Management](#secret-management)
-- [Health Probes](#health-probes)
-- [Automated Version Tracking (UpdateCLI)](#automated-version-tracking-updatecli)
-- [Upgrading](#upgrading)
-- [Uninstalling](#uninstalling)
-- [Development & Testing](#development--testing)
-- [Contributing](#contributing)
+This repo ships and maintains the `helm-engram/engram` Helm chart — one chart, one application.
+It is **not** the upstream Engram application; for that see
+[Gentleman-Programming/engram](https://github.com/Gentleman-Programming/engram).
 
----
+The chart packages Engram Cloud for Kubernetes with:
 
-## Overview
-
-[Engram](https://github.com/Gentleman-Programming/engram) is a Go-based persistent memory server for
-AI coding agents. The **cloud edition** (`engram cloud serve`) exposes an HTTP API backed by
-PostgreSQL, enabling multiple team members and multiple AI agents to share a common memory store.
-
-This chart deploys Engram Cloud to any Kubernetes cluster with:
-
-- **Bundled PostgreSQL** via `bitnami/postgresql` subchart (enabled by default; disable for production)
-- **Flexible secret management**: chart-managed Secret, `existingSecret` for ESO/Sealed Secrets, or plain `--set`
-- **Horizontal Pod Autoscaler** and **PodDisruptionBudget** support
-- **Ingress** with TLS
-- **Extra Kubernetes objects** for ExternalSecret, NetworkPolicy, ServiceMonitor, etc.
-- **UpdateCLI** pipeline to keep chart version in sync with upstream Engram releases
+- Internal PostgreSQL StatefulSet (no external Helm repo needed)
+- Horizontal Pod Autoscaler and PodDisruptionBudget
+- Optional NetworkPolicy
+- Flexible secret management (chart-managed, `existingSecret`, ESO, Sealed Secrets)
+- Full test suite via `helm-unittest` (99 tests)
+- Automated version tracking via UpdateCLI
 
 ---
 
 ## Architecture
 
-```
-┌────────────────────────────────────────────────────────────┐
-│  Kubernetes Cluster                                         │
-│                                                             │
-│  ┌──────────────────┐        ┌──────────────────────────┐  │
-│  │  Engram Cloud    │        │  PostgreSQL              │  │
-│  │  Deployment      │──────▶ │  (bundled StatefulSet or │  │
-│  │  port: 18080     │        │   external DSN)          │  │
-│  │  GET /health     │        └──────────────────────────┘  │
-│  └────────┬─────────┘                                       │
-│           │                                                 │
-│  ┌────────▼─────────┐                                       │
-│  │  ClusterIP Svc   │◀── Ingress (optional)                 │
-│  └──────────────────┘                                       │
-│                                                             │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │  Secret (ENGRAM_DATABASE_URL, ENGRAM_JWT_SECRET)     │   │
-│  │  ConfigMap (ENGRAM_PORT, ENGRAM_CLOUD_HOST, ...)     │   │
-│  └──────────────────────────────────────────────────────┘   │
-└────────────────────────────────────────────────────────────┘
-```
+```mermaid
+flowchart TD
+    subgraph Cluster["Kubernetes Cluster"]
+        direction TB
 
-**Key facts:**
-- Image: `ghcr.io/gentleman-programming/engram` (multi-arch: `linux/amd64`, `linux/arm64`)
-- Runs as UID `10001` (non-root), read-only root filesystem
-- Command: `engram cloud serve`
-- Health endpoint: `GET /health` → `{"status":"ok","service":"engram-cloud"}`
-- Required env: `ENGRAM_DATABASE_URL`, `ENGRAM_JWT_SECRET`, `ENGRAM_CLOUD_ALLOWED_PROJECTS`
+        ING["Ingress\n(optional)"]
+        SVC["Service\nClusterIP :18080"]
+        CM["ConfigMap\nHOST · PORT · PROJECTS · NO_AUTH"]
+        SEC["Secret\nDATABASE_URL · JWT_SECRET\nCLOUD_ADMIN · CLOUD_TOKEN"]
+        HPA["HPA (optional)"]
+        PDB["PDB (optional)"]
+        NP["NetworkPolicy (optional)"]
 
----
+        subgraph Deployment["Deployment"]
+            IC["Init Container\nwait-for-postgresql"]
+            APP["engram cloud :18080\n/tmp emptyDir · UID 10001 non-root"]
+            IC -->|ready| APP
+            APP -.->|envFrom| CM
+            APP -.->|secretKeyRef| SEC
+        end
 
-## Prerequisites
+        subgraph PG["PostgreSQL StatefulSet"]
+            PGC["postgres:16-alpine :5432"]
+            PVC[("PVC")]
+            PGC --> PVC
+        end
 
-| Tool | Version |
-|------|---------|
-| Helm | ≥ 3.12 |
-| Kubernetes | ≥ 1.25 |
-| Bitnami Helm repo | required if `postgresql.enabled=true` |
+        ING -->|HTTP/HTTPS| SVC
+        SVC --> Deployment
+        Deployment -->|TCP :5432| PG
+        HPA -.->|scales| Deployment
+        PDB -.->|protects| Deployment
+        NP -.->|restricts| Deployment
+    end
 
-Add the Bitnami repository if you plan to use the bundled PostgreSQL:
+    AGENT(["AI Agents\nCopilot CLI · MCP clients"])
+    ADMIN(["Admin\n/dashboard/admin"])
 
-```bash
-helm repo add bitnami https://charts.bitnami.com/bitnami
-helm repo update
+    AGENT -->|"HTTP :18080"| ING
+    ADMIN -->|"adminToken"| ING
 ```
 
 ---
@@ -105,341 +76,102 @@ helm repo update
 ## Quick Start
 
 ```bash
-# Add this chart repository
 helm repo add helm-engram https://devops-ia.github.io/helm-engram
 helm repo update
 
-# Install with bundled PostgreSQL and a JWT secret
 helm install engram helm-engram/engram \
   --set engram.jwtSecret="change-me-in-production" \
-  --set engram.allowedProjects="my-project"
-```
-
-That's it. The bundled PostgreSQL starts automatically and `ENGRAM_DATABASE_URL` is
-auto-configured. Set `allowedProjects` to your project name(s), and change the password
-and JWT secret before using in production.
-
----
-
-## Installation
-
-### With bundled PostgreSQL (default)
-
-PostgreSQL is enabled by default (`postgresql.enabled: true`). The chart auto-generates
-`ENGRAM_DATABASE_URL` from the subchart connection values:
-
-```bash
-helm install engram helm-engram/engram \
-  --set engram.jwtSecret="my-jwt-secret" \
   --set engram.allowedProjects="my-project" \
-  --set postgresql.auth.password="my-pg-password"
+  --set postgresql.auth.password="change-me"
 ```
 
-The generated DSN follows the pattern:
-```
-postgres://<postgresql.auth.username>:<postgresql.auth.password>@<release>-postgresql:5432/<postgresql.auth.database>?sslmode=disable
-```
-
-To customise PostgreSQL storage:
-
-```bash
-helm install engram helm-engram/engram \
-  --set engram.jwtSecret="my-jwt-secret" \
-  --set engram.allowedProjects="my-project" \
-  --set postgresql.auth.password="my-pg-password" \
-  --set postgresql.persistence.size=10Gi
-```
-
-### With external PostgreSQL
-
-Disable the subchart and supply your own DSN:
-
-```bash
-helm install engram helm-engram/engram \
-  --set postgresql.enabled=false \
-  --set engram.databaseUrl="postgres://user:pass@my-db.example.com:5432/engram_cloud?sslmode=require" \
-  --set engram.jwtSecret="my-jwt-secret" \
-  --set engram.allowedProjects="my-project"
-```
-
-### With External Secrets Operator
-
-Use `engram.existingSecret` to suppress chart-managed Secret creation and point to a
-pre-existing Kubernetes Secret (managed by ESO, Sealed Secrets, Vault Agent, etc.):
-
-```bash
-helm install engram helm-engram/engram \
-  --set engram.existingSecret=engram-vault-secret \
-  --set postgresql.enabled=false
-```
-
-The referenced Secret must contain exactly:
-
-```yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: engram-vault-secret
-stringData:
-  ENGRAM_DATABASE_URL: "postgres://user:pass@host:5432/db?sslmode=require"
-  ENGRAM_JWT_SECRET: "my-jwt-secret"
-```
-
-You can also inject the ExternalSecret manifest via `extraObjects` (see [Extra Objects](#extra-objects)).
+For full installation options, authentication modes, environment variables reference, and all
+chart values — see the **[chart documentation](charts/engram/README.md)** or the
+[ArtifactHub page](https://artifacthub.io/packages/search?repo=helm-engram).
 
 ---
 
-## Configuration Reference
+## Repository Structure
 
-Run `helm show values helm-engram/engram` for the full annotated values file.
-
-### Engram Cloud Settings
-
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `engram.databaseUrl` | PostgreSQL DSN. Auto-set when `postgresql.enabled=true`. | `""` |
-| `engram.jwtSecret` | JWT signing secret. **Required in production.** | `""` |
-| `engram.existingSecret` | Use an existing Secret instead of creating one. | `""` |
-| `engram.allowedProjects` | **Required.** Comma-separated list of allowed project names. Must be set even in insecure mode. | `""` |
-| `engram.host` | HTTP bind address | `"0.0.0.0"` |
-| `engram.port` | HTTP listen port | `"18080"` |
-| `engram.insecureNoAuth` | Disable authentication. **Never use in production.** | `false` |
-
-### PostgreSQL Subchart
-
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `postgresql.enabled` | Deploy bundled PostgreSQL | `true` |
-| `postgresql.auth.username` | DB username | `engram` |
-| `postgresql.auth.password` | DB password. **Change in production!** | `engram_change_me` |
-| `postgresql.auth.database` | DB name | `engram_cloud` |
-| `postgresql.persistence.enabled` | Enable PVC for PostgreSQL data | `true` |
-| `postgresql.persistence.size` | PVC size | `1Gi` |
-
-All other `postgresql.*` values are passed through to the
-[bitnami/postgresql](https://artifacthub.io/packages/helm/bitnami/postgresql) subchart.
-
-### Ingress
-
-```yaml
-ingress:
-  enabled: true
-  className: nginx
-  annotations:
-    cert-manager.io/cluster-issuer: letsencrypt-prod
-  hosts:
-    - host: engram.example.com
-      paths:
-        - path: /
-          pathType: Prefix
-  tls:
-    - secretName: engram-tls
-      hosts:
-        - engram.example.com
 ```
-
-### Autoscaling
-
-```yaml
-autoscaling:
-  enabled: true
-  minReplicas: 2
-  maxReplicas: 10
-  targetCPUUtilizationPercentage: 70
-
-podDisruptionBudget:
-  enabled: true
-  minAvailable: 1
-```
-
-### Extra Objects
-
-Inject arbitrary Kubernetes manifests with Helm template support via `extraObjects`. Every entry
-is rendered with `tpl`, so you can reference `.Release.Name`, `.Values`, etc.
-
-#### Example: ExternalSecret (ESO)
-
-```yaml
-extraObjects:
-  - apiVersion: external-secrets.io/v1beta1
-    kind: ExternalSecret
-    metadata:
-      name: engram-secret
-    spec:
-      refreshInterval: 1h
-      secretStoreRef:
-        name: my-vault-store
-        kind: ClusterSecretStore
-      target:
-        name: engram-vault-secret
-      data:
-        - secretKey: ENGRAM_DATABASE_URL
-          remoteRef:
-            key: engram/database-url
-        - secretKey: ENGRAM_JWT_SECRET
-          remoteRef:
-            key: engram/jwt-secret
-
-engram:
-  existingSecret: engram-vault-secret
-  databaseUrl: ""
-  jwtSecret: ""
-postgresql:
-  enabled: false
-```
-
-#### Example: NetworkPolicy
-
-```yaml
-extraObjects:
-  - apiVersion: networking.k8s.io/v1
-    kind: NetworkPolicy
-    metadata:
-      name: "{{ .Release.Name }}-engram-allow-ingress"
-    spec:
-      podSelector:
-        matchLabels:
-          app.kubernetes.io/name: engram
-      ingress:
-        - ports:
-            - port: 18080
+helm-engram/
+├── charts/engram/          # The Helm chart
+│   ├── Chart.yaml
+│   ├── values.yaml         # Annotated defaults (source of truth for all config)
+│   ├── values.schema.json  # JSON Schema validation
+│   ├── templates/          # Kubernetes manifest templates
+│   ├── tests/              # helm-unittest test suites (99 tests)
+│   ├── ci/                 # CI values files (minimal, full, ingress)
+│   └── README.md           # Chart reference — auto-generated by helm-docs
+├── .github/
+│   ├── workflows/          # CI: lint+test, release, version check
+│   └── updatecli/          # Automated upstream version tracking
+├── TESTING.md              # Local development & testing guide
+└── CONTRIBUTING.md         # Contribution guidelines
 ```
 
 ---
 
-## Secret Management
+## Development
 
-The chart supports three secret strategies:
-
-| Strategy | How to configure | Chart creates Secret? |
-|----------|------------------|-----------------------|
-| **Chart-managed** (default) | Set `engram.databaseUrl` + `engram.jwtSecret` (or use bundled PG) | ✅ Yes |
-| **Existing Secret** | Set `engram.existingSecret=<name>` | ❌ No |
-| **ExternalSecret / SealedSecret** | Set `engram.existingSecret=<name>` + inject via `extraObjects` | ❌ No |
-
-When `engram.existingSecret` is set, the chart's `Secret` manifest is suppressed entirely.
-The Deployment always references the secret by name (resolved via `engram.secretName` helper).
-
----
-
-## Health Probes
-
-Engram Cloud exposes `GET /health` which returns:
-
-```json
-{"status": "ok", "service": "engram-cloud"}
-```
-
-The chart configures three probes against this endpoint:
-
-| Probe | Path | Initial delay | Period |
-|-------|------|---------------|--------|
-| Liveness | `/health` | 10s | 10s |
-| Readiness | `/health` | 5s | 5s |
-| Startup | `/health` | — | 10s × 30 failures = up to 300s |
-
-The startup probe gives up to **5 minutes** for PostgreSQL migrations on cold start.
-
----
-
-## Automated Version Tracking (UpdateCLI)
-
-The chart uses [UpdateCLI](https://www.updatecli.io/) to track upstream
-[Engram releases](https://github.com/Gentleman-Programming/engram/releases) and
-automatically open PRs that bump:
-
-1. `values.yaml` → `image.tag`
-2. `Chart.yaml` → `appVersion`
-3. `Chart.yaml` → `version`
-
-The UpdateCLI pipeline is at `.github/updatecli/helm-appversion.yaml`.
-Run it manually:
+See [TESTING.md](TESTING.md) for the full local development workflow. Quick reference:
 
 ```bash
-updatecli apply --config .github/updatecli/helm-appversion.yaml
-```
-
-This ensures the chart version always mirrors the upstream Engram release.
-
----
-
-## Upgrading
-
-```bash
-helm repo update
-helm upgrade engram helm-engram/engram \
-  --reuse-values \
-  --set image.tag=vX.Y.Z
-```
-
-Check the upstream [Engram releases](https://github.com/Gentleman-Programming/engram/releases) for breaking changes before upgrading.
-
----
-
-## Uninstalling
-
-```bash
-helm uninstall engram
-```
-
-> **Note:** If `postgresql.enabled=true`, the PVC created for PostgreSQL data is **not** deleted
-> automatically. Delete it manually if no longer needed:
-> ```bash
-> kubectl delete pvc -l app.kubernetes.io/instance=engram
-> ```
-
----
-
-## Development & Testing
-
-See [TESTING.md](TESTING.md) for full details. Quick reference:
-
-```bash
-# Install dependencies
-helm repo add bitnami https://charts.bitnami.com/bitnami
-helm dependency update charts/engram/
-
-# Install helm-unittest plugin
-helm plugin install https://github.com/helm-unittest/helm-unittest
-
 # Lint
-helm lint charts/engram/
+npm run lint                  # helm lint charts/engram
+npm run lint:full             # lint with full CI values
 
-# Unit tests (62 tests across 6 suites)
-helm unittest charts/engram/
-
-# Smoke test — minimal (bundled PG)
-helm template engram charts/engram/ -f charts/engram/ci/minimal-values.yaml
-
-# Smoke test — full (HPA + PDB + Ingress + resources)
-helm template engram charts/engram/ -f charts/engram/ci/full-values.yaml
-
-# npm shortcuts
-npm run lint
+# Unit tests (99 tests, 9 suites)
 npm run test
-npm run docs    # regenerate README via helm-docs
+
+# Template smoke tests
+npm run template              # minimal values
+npm run template:full         # all features enabled
+npm run template:ingress      # ingress with TLS
+
+# Regenerate charts/engram/README.md from README.md.gotmpl
+npm run docs
 ```
+
+Install the `helm-unittest` plugin once:
+
+```bash
+helm plugin install https://github.com/helm-unittest/helm-unittest --verify=false
+```
+
+---
+
+## Automated Version Tracking
+
+[UpdateCLI](https://www.updatecli.io/) monitors
+[Gentleman-Programming/engram releases](https://github.com/Gentleman-Programming/engram/releases)
+and opens automated PRs to bump `image.tag`, `Chart.yaml appVersion`, and `Chart.yaml version`.
+
+Pipeline: `.github/updatecli/helm-appversion.yaml`
 
 ---
 
 ## Contributing
 
-1. Fork this repository
-2. Create a feature branch: `git checkout -b feat/my-feature`
-3. Make changes and add/update tests in `charts/engram/tests/`
-4. Run `helm lint charts/engram/` and `helm unittest charts/engram/`
-5. Open a Pull Request — CI runs lint + unit tests automatically
+1. Fork → feature branch (`feat/my-feature`)
+2. Change chart templates and/or values
+3. Add or update tests in `charts/engram/tests/`
+4. Run `npm run test && npm run lint`
+5. Open a Pull Request — CI runs lint + unit tests + kind install automatically
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
 ---
+
+## Links
+
+| | |
+|--|--|
+| Engram upstream | <https://github.com/Gentleman-Programming/engram> |
+| ArtifactHub | <https://artifacthub.io/packages/search?repo=helm-engram> |
+| Chart reference | [charts/engram/README.md](charts/engram/README.md) |
+| UpdateCLI | <https://www.updatecli.io/> |
 
 ## License
 
 MIT — see [LICENSE](LICENSE).
-
-## Links
-
-- [Engram upstream repository](https://github.com/Gentleman-Programming/engram)
-- [helm-engram repository](https://github.com/devops-ia/helm-engram)
-- [Artifact Hub](https://artifacthub.io/packages/search?repo=helm-engram)
-- [Helm documentation](https://helm.sh/docs/)
-- [UpdateCLI](https://www.updatecli.io/)
