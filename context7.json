@@ -1,0 +1,18 @@
+{
+  "url": "https://context7.com/amartingarcia/helm-engram",
+  "public_key": "pk_poNqP0E20Jn62M589pdY6",
+  "title": "helm-engram — Helm Chart for Engram Cloud",
+  "description": "Helm chart to deploy Engram Cloud (AI persistent memory server) on Kubernetes. Includes bundled PostgreSQL, ExternalSecrets support, HPA, PDB, Ingress, and UpdateCLI automation.",
+  "topics": [
+    "helm",
+    "kubernetes",
+    "engram",
+    "ai",
+    "memory",
+    "llm",
+    "mcp",
+    "agent",
+    "golang",
+    "postgresql"
+  ]
+}

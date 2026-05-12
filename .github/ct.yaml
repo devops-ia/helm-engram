@@ -1,0 +1,9 @@
+# See https://github.com/helm/chart-testing#configuration
+chart-dirs:
+  - charts
+check-version-increment: true
+debug: false
+remote: origin
+target-branch: main
+validate-maintainers: false
+validate-yaml: true

@@ -1,0 +1,62 @@
+suite: service tests
+templates:
+  - templates/service.yaml
+
+tests:
+  - it: should create a Service by default
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: kind
+          value: Service
+
+  - it: should set type to ClusterIP by default
+    asserts:
+      - equal:
+          path: spec.type
+          value: ClusterIP
+
+  - it: should expose port 18080 by default
+    asserts:
+      - equal:
+          path: spec.ports[0].port
+          value: 18080
+
+  - it: should target port http
+    asserts:
+      - equal:
+          path: spec.ports[0].targetPort
+          value: http
+
+  - it: should set port protocol to TCP
+    asserts:
+      - equal:
+          path: spec.ports[0].protocol
+          value: TCP
+
+  - it: should apply service annotations
+    set:
+      service.annotations:
+        service.beta.kubernetes.io/aws-load-balancer-type: external
+    asserts:
+      - equal:
+          path: metadata.annotations["service.beta.kubernetes.io/aws-load-balancer-type"]
+          value: external
+
+  - it: should support NodePort type
+    set:
+      service.type: NodePort
+    asserts:
+      - equal:
+          path: spec.type
+          value: NodePort
+
+  - it: should have correct selector labels
+    asserts:
+      - equal:
+          path: spec.selector["app.kubernetes.io/name"]
+          value: engram
+      - equal:
+          path: spec.selector["app.kubernetes.io/instance"]
+          value: RELEASE-NAME

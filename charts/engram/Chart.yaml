@@ -1,0 +1,28 @@
+apiVersion: v2
+name: engram
+description: A Helm chart for Engram Cloud — AI-powered persistent memory server for LLM agents
+type: application
+version: 1.15.10
+appVersion: v1.15.10
+home: https://github.com/Gentleman-Programming/engram
+sources:
+  - https://github.com/Gentleman-Programming/engram
+  - https://github.com/amartingarcia/helm-engram
+maintainers:
+  - name: amartingarcia
+    email: adrianmg231189@gmail.com
+  - name: ialejandro
+    email: hello@ialejandro.rocks
+keywords:
+  - engram
+  - ai
+  - memory
+  - llm
+  - mcp
+  - agent
+  - golang
+dependencies:
+  - name: postgresql
+    version: "16.x.x"
+    repository: "https://charts.bitnami.com/bitnami"
+    condition: postgresql.enabled

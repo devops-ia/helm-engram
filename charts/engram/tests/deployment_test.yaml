@@ -1,0 +1,198 @@
+suite: deployment tests
+templates:
+  - templates/deployment.yaml
+  - templates/secret.yaml
+  - templates/configmap.yaml
+
+tests:
+  - it: should use the correct image repository and tag by default
+    template: templates/deployment.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: "ghcr.io/gentleman-programming/engram:v1.15.10"
+
+  - it: should set image pull policy to IfNotPresent by default
+    template: templates/deployment.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].imagePullPolicy
+          value: IfNotPresent
+
+  - it: should set container name to chart name
+    template: templates/deployment.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].name
+          value: engram
+
+  - it: should expose HTTP port 18080
+    template: templates/deployment.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].ports[0].containerPort
+          value: 18080
+      - equal:
+          path: spec.template.spec.containers[0].ports[0].name
+          value: http
+
+  - it: should run as non-root user with UID 10001
+    template: templates/deployment.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.securityContext.runAsUser
+          value: 10001
+      - equal:
+          path: spec.template.spec.securityContext.runAsGroup
+          value: 10001
+      - equal:
+          path: spec.template.spec.securityContext.fsGroup
+          value: 10001
+
+  - it: should set container security context
+    template: templates/deployment.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.runAsNonRoot
+          value: true
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.runAsUser
+          value: 10001
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.allowPrivilegeEscalation
+          value: false
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.readOnlyRootFilesystem
+          value: true
+
+  - it: should inject ENGRAM_DATABASE_URL from chart-managed secret by default
+    template: templates/deployment.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].env[0].name
+          value: ENGRAM_DATABASE_URL
+      - equal:
+          path: spec.template.spec.containers[0].env[0].valueFrom.secretKeyRef.name
+          value: RELEASE-NAME-engram
+      - equal:
+          path: spec.template.spec.containers[0].env[0].valueFrom.secretKeyRef.key
+          value: ENGRAM_DATABASE_URL
+
+  - it: should inject ENGRAM_JWT_SECRET from chart-managed secret by default
+    template: templates/deployment.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].env[1].name
+          value: ENGRAM_JWT_SECRET
+      - equal:
+          path: spec.template.spec.containers[0].env[1].valueFrom.secretKeyRef.name
+          value: RELEASE-NAME-engram
+
+  - it: should switch secret reference when existingSecret is set
+    template: templates/deployment.yaml
+    set:
+      engram.existingSecret: my-external-secret
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].env[0].valueFrom.secretKeyRef.name
+          value: my-external-secret
+      - equal:
+          path: spec.template.spec.containers[0].env[1].valueFrom.secretKeyRef.name
+          value: my-external-secret
+
+  - it: should use liveness probe on /health by default
+    template: templates/deployment.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.httpGet.path
+          value: /health
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.httpGet.port
+          value: http
+
+  - it: should use readiness probe on /health by default
+    template: templates/deployment.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].readinessProbe.httpGet.path
+          value: /health
+
+  - it: should use startup probe on /health with failureThreshold 30
+    template: templates/deployment.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].startupProbe.httpGet.path
+          value: /health
+      - equal:
+          path: spec.template.spec.containers[0].startupProbe.failureThreshold
+          value: 30
+
+  - it: should set args to cloud serve
+    template: templates/deployment.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].args[0]
+          value: cloud
+      - equal:
+          path: spec.template.spec.containers[0].args[1]
+          value: serve
+
+  - it: should set command to engram
+    template: templates/deployment.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].command[0]
+          value: engram
+
+  - it: should omit replicas field when HPA is enabled
+    template: templates/deployment.yaml
+    set:
+      autoscaling.enabled: true
+    asserts:
+      - notExists:
+          path: spec.replicas
+
+  - it: should set replicas when HPA is disabled
+    template: templates/deployment.yaml
+    set:
+      replicaCount: 3
+    asserts:
+      - equal:
+          path: spec.replicas
+          value: 3
+
+  - it: should apply deployment annotations
+    template: templates/deployment.yaml
+    set:
+      deploymentAnnotations:
+        my-annotation: my-value
+    asserts:
+      - equal:
+          path: metadata.annotations["my-annotation"]
+          value: my-value
+
+  - it: should apply pod annotations
+    template: templates/deployment.yaml
+    set:
+      podAnnotations:
+        pod-annotation: pod-value
+    asserts:
+      - equal:
+          path: spec.template.metadata.annotations["pod-annotation"]
+          value: pod-value
+
+  - it: should use custom image tag when overridden
+    template: templates/deployment.yaml
+    set:
+      image.tag: v2.0.0
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: "ghcr.io/gentleman-programming/engram:v2.0.0"
+
+  - it: should reference chart configmap via envFrom
+    template: templates/deployment.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].envFrom[0].configMapRef.name
+          value: RELEASE-NAME-engram

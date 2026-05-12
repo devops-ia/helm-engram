@@ -1,0 +1,6 @@
+*.tgz
+node_modules/
+.cr-release-packages/
+.ct/
+.DS_Store
+*.swp

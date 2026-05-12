@@ -1,0 +1,16 @@
+{
+  "name": "helm-engram",
+  "private": true,
+  "scripts": {
+    "lint": "helm lint charts/engram",
+    "lint:full": "helm lint charts/engram -f charts/engram/ci/values-full.yaml",
+    "test": "helm unittest charts/engram/",
+    "test:verbose": "helm unittest -v charts/engram/",
+    "test:update-snapshot": "helm unittest --update-snapshot charts/engram/",
+    "docs": "helm-docs --chart-search-root charts",
+    "template": "helm template engram charts/engram -f charts/engram/ci/values-minimal.yaml",
+    "template:full": "helm template engram charts/engram -f charts/engram/ci/values-full.yaml",
+    "template:ingress": "helm template engram charts/engram -f charts/engram/ci/values-ingress.yaml",
+    "version:bump": "node -e \"const fs=require('fs');const f='charts/engram/Chart.yaml';const c=fs.readFileSync(f,'utf8');const m=c.match(/^version:\\s*(\\d+)\\.(\\d+)\\.(\\d+)/m);if(!m)throw new Error('version not found');const[,ma,mi,pa]=m;const nv=ma+'.'+mi+'.'+(+pa+1);const nc=c.replace(/^version:.*/m,'version: '+nv);fs.writeFileSync(f,nc);console.log('Chart version bumped to '+nv);\""
+  }
+}

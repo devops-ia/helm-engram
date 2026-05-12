@@ -1,0 +1,58 @@
+# Full CI values — all optional features enabled
+replicaCount: 2
+
+engram:
+  databaseUrl: "postgres://engram:test@localhost:5432/engram_cloud?sslmode=disable"
+  jwtSecret: "ci-test-jwt-secret-do-not-use-in-production"
+  allowedProjects: "project1,project2"
+
+podAnnotations:
+  test-annotation: "true"
+
+podLabels:
+  test-label: "true"
+
+deploymentAnnotations:
+  deployment-annotation: "true"
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 80
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+ingress:
+  enabled: true
+  className: nginx
+  hosts:
+    - host: engram.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+
+serviceAccount:
+  annotations:
+    test-sa-annotation: "true"
+
+nodeSelector:
+  kubernetes.io/os: linux
+
+extraVolumes:
+  - name: tmp
+    emptyDir: {}
+
+extraVolumeMounts:
+  - name: tmp
+    mountPath: /tmp

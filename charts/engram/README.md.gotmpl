@@ -1,0 +1,108 @@
+# {{ template "chart.name" . }}
+
+{{ template "chart.description" . }}
+
+{{ template "chart.maintainersSection" . }}
+
+## TL;DR
+
+```console
+helm repo add helm-engram https://amartingarcia.github.io/helm-engram
+helm install my-engram helm-engram/engram \
+  --set engram.databaseUrl="postgres://user:pass@host:5432/engram_cloud?sslmode=disable" \
+  --set engram.jwtSecret="your-jwt-secret"
+```
+
+## Prerequisites
+
+* Helm 3+
+* Kubernetes 1.25+
+* An external PostgreSQL instance (13+) — Engram Cloud requires `ENGRAM_DATABASE_URL`
+
+{{ template "chart.requirementsSection" . }}
+
+## Add repository
+
+```console
+helm repo add helm-engram https://amartingarcia.github.io/helm-engram
+helm repo update
+```
+
+## Install chart
+
+```console
+# Minimal installation — pass secrets inline (not recommended for production)
+helm install my-engram helm-engram/engram \
+  --set engram.databaseUrl="postgres://user:pass@host:5432/engram_cloud?sslmode=disable" \
+  --set engram.jwtSecret="your-jwt-secret"
+
+# Using a values file (recommended)
+helm install my-engram helm-engram/engram -f my-values.yaml
+```
+
+## Using an Existing Secret
+
+For production deployments, avoid passing secrets through Helm values. Use `engram.existingSecret` to reference a Kubernetes Secret managed externally (e.g., via External Secrets Operator, Sealed Secrets, or Vault Agent):
+
+```yaml
+# my-values.yaml
+engram:
+  existingSecret: engram-credentials  # Must contain ENGRAM_DATABASE_URL and ENGRAM_JWT_SECRET
+```
+
+The existing Secret must have exactly these keys:
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: engram-credentials
+type: Opaque
+stringData:
+  ENGRAM_DATABASE_URL: "postgres://user:pass@host:5432/engram_cloud?sslmode=disable"
+  ENGRAM_JWT_SECRET: "your-jwt-secret"
+```
+
+## External Secrets Operator Integration
+
+Use `extraObjects` to deploy an ExternalSecret alongside the chart:
+
+```yaml
+engram:
+  existingSecret: engram-credentials
+
+extraObjects:
+  - apiVersion: external-secrets.io/v1beta1
+    kind: ExternalSecret
+    metadata:
+      name: engram-credentials
+    spec:
+      refreshInterval: 1h
+      secretStoreRef:
+        name: my-store
+        kind: ClusterSecretStore
+      target:
+        name: engram-credentials
+      data:
+        - secretKey: ENGRAM_DATABASE_URL
+          remoteRef:
+            key: engram/database-url
+        - secretKey: ENGRAM_JWT_SECRET
+          remoteRef:
+            key: engram/jwt-secret
+```
+
+## Upgrade chart
+
+```console
+helm upgrade my-engram helm-engram/engram -f my-values.yaml
+```
+
+## Uninstall chart
+
+```console
+helm uninstall my-engram
+```
+
+{{ template "chart.valuesSection" . }}
+
+{{ template "chart.sourcesSection" . }}

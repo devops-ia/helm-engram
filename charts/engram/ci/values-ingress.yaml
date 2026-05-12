@@ -1,0 +1,19 @@
+# Ingress CI values
+engram:
+  databaseUrl: "postgres://engram:test@localhost:5432/engram_cloud?sslmode=disable"
+  jwtSecret: "ci-test-jwt-secret-do-not-use-in-production"
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+  hosts:
+    - host: engram.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: engram-tls
+      hosts:
+        - engram.example.com

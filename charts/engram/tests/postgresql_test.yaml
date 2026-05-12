@@ -1,0 +1,67 @@
+suite: postgresql subchart integration tests
+templates:
+  - templates/secret.yaml
+  - templates/deployment.yaml
+
+tests:
+  - it: should auto-build ENGRAM_DATABASE_URL from subchart when postgresql.enabled=true
+    template: templates/secret.yaml
+    set:
+      postgresql.enabled: true
+      postgresql.auth.username: engram
+      postgresql.auth.password: supersecret
+      postgresql.auth.database: engram_cloud
+      engram.jwtSecret: my-jwt-secret
+    asserts:
+      - isKind:
+          of: Secret
+      - matchRegex:
+          path: data.ENGRAM_DATABASE_URL
+          # base64 of postgres://engram:supersecret@RELEASE-NAME-postgresql:5432/engram_cloud?sslmode=disable
+          pattern: "^.+$"
+
+  - it: should prefer engram.databaseUrl over auto-generated DSN when both are set
+    template: templates/secret.yaml
+    set:
+      postgresql.enabled: true
+      postgresql.auth.username: engram
+      postgresql.auth.password: ignored
+      postgresql.auth.database: engram_cloud
+      engram.databaseUrl: "postgres://custom:custom@my-db:5432/mydb?sslmode=require"
+      engram.jwtSecret: my-jwt-secret
+    asserts:
+      - isKind:
+          of: Secret
+      - equal:
+          path: data.ENGRAM_DATABASE_URL
+          # base64("postgres://custom:custom@my-db:5432/mydb?sslmode=require")
+          value: "cG9zdGdyZXM6Ly9jdXN0b206Y3VzdG9tQG15LWRiOjU0MzIvbXlkYj9zc2xtb2RlPXJlcXVpcmU="
+
+  - it: should not render secret when existingSecret is set (even with postgresql.enabled=true)
+    template: templates/secret.yaml
+    set:
+      postgresql.enabled: true
+      engram.existingSecret: my-external-secret
+      engram.jwtSecret: my-jwt-secret
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should reference postgresql service host in auto-generated DSN
+    template: templates/secret.yaml
+    release:
+      name: my-release
+    set:
+      postgresql.enabled: true
+      postgresql.auth.username: engram
+      postgresql.auth.password: testpass
+      postgresql.auth.database: engram_cloud
+      engram.jwtSecret: my-jwt-secret
+      engram.databaseUrl: ""
+    asserts:
+      - isKind:
+          of: Secret
+      - equal:
+          path: data.ENGRAM_DATABASE_URL
+          # base64("postgres://engram:testpass@my-release-postgresql:5432/engram_cloud?sslmode=disable")
+          value: "cG9zdGdyZXM6Ly9lbmdyYW06dGVzdHBhc3NAbXktcmVsZWFzZS1wb3N0Z3Jlc3FsOjU0MzIvZW5ncmFtX2Nsb3VkP3NzbG1vZGU9ZGlzYWJsZQ=="
