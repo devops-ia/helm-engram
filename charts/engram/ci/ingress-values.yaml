@@ -4,14 +4,6 @@ engram:
   allowedProjects: "project1,project2"
   insecureNoAuth: true
 
-extraVolumes:
-  - name: tmp
-    emptyDir: {}
-
-extraVolumeMounts:
-  - name: tmp
-    mountPath: /tmp
-
 ingress:
   enabled: true
   className: nginx

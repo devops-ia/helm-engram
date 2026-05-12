@@ -50,10 +50,4 @@ serviceAccount:
 nodeSelector:
   kubernetes.io/os: linux
 
-extraVolumes:
-  - name: tmp
-    emptyDir: {}
-
-extraVolumeMounts:
-  - name: tmp
-    mountPath: /tmp
+# tmpVolume.enabled=true by default; no need for extraVolumes override
