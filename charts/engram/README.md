@@ -116,9 +116,9 @@ helm uninstall my-engram
 | extraVolumeMounts | list | `[]` | Extra volume mounts to add to the engram container |
 | extraVolumes | list | `[]` | Extra volumes to add to the pod |
 | fullnameOverride | string | `""` | String to fully override engram.fullname template |
-| image | object | `{"pullPolicy":"IfNotPresent","repository":"ghcr.io/gentleman-programming/engram","tag":"v1.15.10"}` | Image registry |
+| image | object | `{"pullPolicy":"IfNotPresent","repository":"ghcr.io/gentleman-programming/engram","tag":"v1.15.13"}` | Image registry |
 | image.repository | string | `"ghcr.io/gentleman-programming/engram"` | Image repository. Published to GHCR via cloud-image.yml workflow |
-| image.tag | string | `"v1.15.10"` | Image tag. Overrides the image tag whose default is the chart appVersion. Managed by updatecli monitoring Gentleman-Programming/engram releases. |
+| image.tag | string | `"v1.15.13"` | Image tag. Overrides the image tag whose default is the chart appVersion. Managed by updatecli monitoring Gentleman-Programming/engram releases. |
 | imagePullSecrets | list | `[]` | Registry secret names as an array |
 | ingress | object | `{"annotations":{},"className":"","enabled":false,"hosts":[{"host":"engram.local","paths":[{"path":"/","pathType":"ImplementationSpecific"}]}],"tls":[]}` | Ingress configuration |
 | ingress.annotations | object | `{}` | Ingress annotations |
