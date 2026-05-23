@@ -28,6 +28,6 @@ targets:
     sourceid: engram
   # NOTE: chart version ($.version) is NOT managed here.
   # When a new Engram release is detected, the helm-check-engram-release.yml workflow
-  # resets the chart version to {major}.{minor}.0 (e.g., v1.16.0 → 1.16.0).
-  # For chart-only changes, bump the patch manually: 1.16.0 → 1.16.1 → 1.16.2
-  # using: npm run version:bump
+  # sets the chart version to match the appVersion (strip 'v'), e.g., v1.15.13 → 1.15.13.
+  # For chart-only changes (no upstream release), bump the patch manually:
+  #   1.15.13 → 1.15.14 using: npm run version:bump
