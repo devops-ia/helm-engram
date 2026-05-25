@@ -10,7 +10,7 @@ tests:
     asserts:
       - equal:
           path: spec.template.spec.containers[0].image
-          value: "ghcr.io/gentleman-programming/engram:v1.15.10"
+          value: "ghcr.io/gentleman-programming/engram:v1.15.15"
 
   - it: should set image pull policy to IfNotPresent by default
     template: templates/deployment.yaml
@@ -188,7 +188,7 @@ tests:
     asserts:
       - equal:
           path: spec.template.spec.containers[0].image
-          value: "ghcr.io/gentleman-programming/engram:v2.0.0"
+          value: "ghcr.io/gentleman-programming/engram:v1.15.15"
 
   - it: should reference chart configmap via envFrom
     template: templates/deployment.yaml
