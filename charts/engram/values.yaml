@@ -12,7 +12,7 @@ image:
   pullPolicy: IfNotPresent
   # -- Image tag. Overrides the image tag whose default is the chart appVersion.
   # Managed by updatecli monitoring Gentleman-Programming/engram releases.
-  tag: "v1.15.10"
+  tag: v1.15.15
 
 # -- Registry secret names as an array
 imagePullSecrets: []
@@ -247,7 +247,7 @@ podDisruptionBudget:
   minAvailable: 1
   # -- Maximum number of pods that may be unavailable during voluntary disruptions.
   # Mutually exclusive with minAvailable — only one may be set. Set to null to use minAvailable.
-  maxUnavailable: ~
+  maxUnavailable: null
 
 # -- HorizontalPodAutoscaler configuration
 autoscaling:
