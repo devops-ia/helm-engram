@@ -7,7 +7,7 @@ permissions:
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 8 * * 1' # every Monday at 08:00 UTC
+    - cron: '0 8 * * *' # every day at 8:00 UTC
 
 jobs:
   check-and-release:
