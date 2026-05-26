@@ -184,11 +184,11 @@ tests:
   - it: should use custom image tag when overridden
     template: templates/deployment.yaml
     set:
-      image.tag: v2.0.0
+      image.tag: "custom-override"
     asserts:
       - equal:
           path: spec.template.spec.containers[0].image
-          value: "ghcr.io/gentleman-programming/engram:v2.0.0"
+          value: "ghcr.io/gentleman-programming/engram:custom-override"
 
   - it: should reference chart configmap via envFrom
     template: templates/deployment.yaml
