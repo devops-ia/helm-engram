@@ -12,7 +12,7 @@ image:
   pullPolicy: IfNotPresent
   # -- Image tag. Overrides the image tag whose default is the chart appVersion.
   # Managed by updatecli monitoring Gentleman-Programming/engram releases.
-  tag: v1.15.15
+  tag: v1.16.0
 
 # -- Registry secret names as an array
 imagePullSecrets: []
