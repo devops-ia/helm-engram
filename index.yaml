@@ -24,6 +24,56 @@ entries:
       artifacthub.io/operator: "false"
       artifacthub.io/prerelease: "false"
     apiVersion: v2
+    appVersion: v1.16.0
+    created: "2026-05-30T09:50:08.682132109Z"
+    description: A Helm chart for Engram Cloud — AI-powered persistent memory server
+      for LLM agents
+    digest: 41e51e8f85c2227c8773c4c76ad9a7c1437773af59969d0b18c4f6df756416d0
+    home: https://github.com/Gentleman-Programming/engram
+    keywords:
+    - engram
+    - ai
+    - memory
+    - llm
+    - mcp
+    - agent
+    - golang
+    maintainers:
+    - email: adrianmg231189@gmail.com
+      name: amartingarcia
+    - email: hello@ialejandro.rocks
+      name: ialejandro
+    name: engram
+    sources:
+    - https://github.com/Gentleman-Programming/engram
+    - https://github.com/devops-ia/helm-engram
+    type: application
+    urls:
+    - https://github.com/devops-ia/helm-engram/releases/download/v1.16.0/engram-1.16.0.tgz
+    version: 1.16.0
+  - annotations:
+      artifacthub.io/category: ai-ml
+      artifacthub.io/changes: |
+        - kind: added
+          description: "Built-in /tmp emptyDir volume for readOnlyRootFilesystem compatibility (tmpVolume.enabled)"
+        - kind: added
+          description: "ENGRAM_CLOUD_ADMIN support via engram.adminToken (dashboard /admin access)"
+        - kind: added
+          description: "ENGRAM_CLOUD_TOKEN support via engram.cloudToken (bearer token auth)"
+        - kind: added
+          description: "Optional NetworkPolicy template (networkPolicy.enabled)"
+        - kind: added
+          description: "PDB maxUnavailable option, mutually exclusive with minAvailable"
+        - kind: added
+          description: "runAsNonRoot: true in podSecurityContext"
+        - kind: fixed
+          description: "CI: minimal-values.yaml was missing allowedProjects (caused silent crash on install)"
+        - kind: changed
+          description: "CI: helm unittest runs before ct lint and ct install"
+      artifacthub.io/license: MIT
+      artifacthub.io/operator: "false"
+      artifacthub.io/prerelease: "false"
+    apiVersion: v2
     appVersion: v1.15.15
     created: "2026-05-26T13:19:08.313049153Z"
     description: A Helm chart for Engram Cloud — AI-powered persistent memory server
@@ -101,4 +151,4 @@ entries:
     urls:
     - https://github.com/devops-ia/helm-engram/releases/download/v1.15.10/engram-1.15.10.tgz
     version: 1.15.10
-generated: "2026-05-26T13:19:08.313079309Z"
+generated: "2026-05-30T09:50:08.682144127Z"
