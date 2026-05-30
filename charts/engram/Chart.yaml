@@ -2,8 +2,8 @@ apiVersion: v2
 name: engram
 description: A Helm chart for Engram Cloud — AI-powered persistent memory server for LLM agents
 type: application
-version: 1.15.15
-appVersion: v1.15.15
+version: 1.16.0
+appVersion: v1.16.0
 home: https://github.com/Gentleman-Programming/engram
 sources:
   - https://github.com/Gentleman-Programming/engram
