@@ -46,6 +46,8 @@ helm repo update
 
 ### Bundled PostgreSQL (default)
 
+`postgresql.auth.password` (or `postgresql.auth.existingSecret`) is required — the chart fails fast without it.
+
 ```console
 helm install my-engram helm-engram/engram \
   --set engram.jwtSecret="<secret>" \
@@ -55,6 +57,8 @@ helm install my-engram helm-engram/engram \
 ```
 
 ### External PostgreSQL
+
+Use `sslmode=require` (or `verify-full`) for managed databases such as AWS RDS, and URL-encode the password.
 
 ```console
 helm install my-engram helm-engram/engram \

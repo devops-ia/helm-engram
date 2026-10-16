@@ -48,7 +48,9 @@
         "insecureNoAuth":  { "type": "boolean" },
         "adminToken":      { "type": "string", "description": "Admin token for /dashboard/admin routes (ENGRAM_CLOUD_ADMIN)." },
         "cloudToken":      { "type": "string", "description": "Bearer token for authentication (ENGRAM_CLOUD_TOKEN)." },
-        "existingSecret":  { "type": "string" }
+        "existingSecret":  { "type": "string" },
+        "tokenPepper":     { "type": "string", "description": "Pepper for managed bearer tokens (ENGRAM_CLOUD_TOKEN_PEPPER). Must differ from jwtSecret." },
+        "maxPushBytes":    { "type": ["string", "integer"], "pattern": "^[0-9]*$", "description": "Max push request body size in bytes (ENGRAM_CLOUD_MAX_PUSH_BYTES)." }
       }
     },
     "env":     { "type": "array" },
@@ -99,7 +101,9 @@
       "type": "object",
       "description": "Kubernetes NetworkPolicy for Engram pods.",
       "properties": {
-        "enabled": { "type": "boolean" }
+        "enabled":      { "type": "boolean" },
+        "extraIngress": { "type": "array" },
+        "extraEgress":  { "type": "array" }
       }
     },
     "extraVolumes":       { "type": "array" },
@@ -127,6 +131,48 @@
         "minReplicas":                    { "type": "integer", "minimum": 1 },
         "maxReplicas":                    { "type": "integer", "minimum": 1 },
         "targetCPUUtilizationPercentage": { "type": "integer", "minimum": 1, "maximum": 100 }
+      }
+    },
+    "postgresql": {
+      "type": "object",
+      "description": "Bundled PostgreSQL configuration.",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "waitForReady": {
+          "type": "object",
+          "properties": {
+            "disabled": { "type": "boolean" },
+            "image": {
+              "type": "object",
+              "properties": {
+                "registry":   { "type": "string" },
+                "repository": { "type": "string", "minLength": 1 },
+                "tag":        { "type": "string", "minLength": 1 },
+                "pullPolicy": { "type": "string", "enum": ["Always", "IfNotPresent", "Never"] }
+              }
+            },
+            "resources": { "type": "object" }
+          }
+        },
+        "image": { "type": "object" },
+        "auth": {
+          "type": "object",
+          "properties": {
+            "username":                  { "type": "string", "minLength": 1 },
+            "password":                  { "type": "string" },
+            "database":                  { "type": "string", "minLength": 1 },
+            "existingSecret":            { "type": "string" },
+            "existingSecretPasswordKey": { "type": "string" }
+          }
+        },
+        "service": {
+          "type": "object",
+          "properties": {
+            "port": { "type": "integer", "minimum": 1, "maximum": 65535 }
+          }
+        },
+        "persistence": { "type": "object" },
+        "resources":   { "type": "object" }
       }
     }
   }

@@ -65,7 +65,10 @@ securityContext:
 
 # -- Engram Cloud configuration
 engram:
-  # -- Required. PostgreSQL DSN e.g. postgres://user:pass@host:5432/engram_cloud?sslmode=disable
+  # -- PostgreSQL DSN, e.g. postgres://<user>:<password>@<host>:5432/engram_cloud?sslmode=require.
+  # Required unless engram.existingSecret is set or the bundled PostgreSQL is enabled.
+  # Use sslmode=require (or verify-full) for managed databases such as AWS RDS or Cloud SQL.
+  # URL-encode special characters in the password.
   databaseUrl: ""
   # -- Required. JWT signing secret used to sign and verify tokens
   jwtSecret: ""
@@ -86,9 +89,19 @@ engram:
   # Must be an unguessable random string — use `openssl rand -hex 32`.
   # Must be EMPTY when insecureNoAuth=true (dev-only insecure mode; the two are mutually exclusive).
   cloudToken: ""
-  # -- Name of an existing Secret containing ENGRAM_DATABASE_URL and ENGRAM_JWT_SECRET.
+  # -- Pepper used to hash managed bearer tokens (ENGRAM_CLOUD_TOKEN_PEPPER).
+  # Enables managed-token authentication (`engram cloud bootstrap admin --issue-token`).
+  # Must be a dedicated secret, different from jwtSecret. Requires authenticated mode.
+  tokenPepper: ""
+  # -- Maximum request body size in bytes for chunk/mutation pushes (ENGRAM_CLOUD_MAX_PUSH_BYTES).
+  # Leave empty to use the Engram default (8388608 = 8 MiB).
+  maxPushBytes: ""
+  # -- Name of an existing Secret containing the Engram secret keys.
+  # Expected keys: ENGRAM_DATABASE_URL (required), ENGRAM_JWT_SECRET (required),
+  # ENGRAM_CLOUD_TOKEN, ENGRAM_CLOUD_ADMIN and ENGRAM_CLOUD_TOKEN_PEPPER (optional).
   # When set, the chart does NOT create a Secret — use this for External Secrets Operator,
   # Sealed Secrets, Vault Agent, or any external secrets manager.
+  # Token/DSN validation is skipped because Helm cannot inspect the Secret contents.
   existingSecret: ""
 
 # -- Environment variables to configure application
@@ -198,6 +211,18 @@ networkPolicy:
   # - Egress: allowed to PostgreSQL on port 5432, DNS on port 53, and Kubernetes API
   # Leave disabled if your cluster uses a different network security model.
   enabled: false
+  # -- Additional ingress rules (NetworkPolicyIngressRule list).
+  # Use it for ingress controllers not covered by the built-in nginx/traefik rule,
+  # e.g. AWS ALB with target-type ip, where traffic comes from the VPC CIDR.
+  extraIngress: []
+  # - from:
+  #     - ipBlock:
+  #         cidr: 10.0.0.0/16
+  #   ports:
+  #     - port: 18080
+  #       protocol: TCP
+  # -- Additional egress rules (NetworkPolicyEgressRule list)
+  extraEgress: []
 
 # -- Extra volumes to add to the pod
 extraVolumes: []
@@ -219,7 +244,7 @@ initContainers: []
 # Useful for ExternalSecret, SealedSecret, NetworkPolicy, ServiceMonitor, etc.
 # Each entry is rendered via tpl, so Helm template functions are supported.
 extraObjects: []
-# - apiVersion: external-secrets.io/v1beta1
+# - apiVersion: external-secrets.io/v1
 #   kind: ExternalSecret
 #   metadata:
 #     name: engram-secret
@@ -237,6 +262,9 @@ extraObjects: []
 #       - secretKey: ENGRAM_JWT_SECRET
 #         remoteRef:
 #           key: engram/jwt-secret
+#       - secretKey: ENGRAM_CLOUD_TOKEN
+#         remoteRef:
+#           key: engram/cloud-token
 
 # -- PodDisruptionBudget configuration
 podDisruptionBudget:
@@ -266,14 +294,27 @@ autoscaling:
 # via engram.databaseUrl or engram.existingSecret.
 postgresql:
   # -- Enable the bundled PostgreSQL deployment.
-  # When true, ENGRAM_DATABASE_URL is auto-configured from auth values below.
+  # When true, ENGRAM_DATABASE_URL is auto-configured from auth values below
+  # (unless engram.databaseUrl or engram.existingSecret is set).
   # When false, you must provide engram.databaseUrl or engram.existingSecret.
   enabled: true
   # -- Wait for PostgreSQL to be ready before starting Engram.
-  # Adds an init container that polls port 5432 with nc.
-  # Set disabled: true only if you manage readiness externally.
+  # Adds an init container that polls the PostgreSQL service port with nc.
   waitForReady:
+    # -- Set to true only if you manage readiness externally
     disabled: false
+    # -- Image used by the wait-for-postgresql init container
+    image:
+      # -- Image registry (empty = default registry, e.g. docker.io)
+      registry: ""
+      # -- Image repository
+      repository: busybox
+      # -- Image tag
+      tag: "1.36"
+      # -- Image pull policy
+      pullPolicy: IfNotPresent
+    # -- Resource requests and limits for the init container
+    resources: {}
   # -- PostgreSQL container image (official Docker Hub image)
   image:
     registry: docker.io
@@ -283,8 +324,15 @@ postgresql:
   auth:
     # -- PostgreSQL username for Engram Cloud
     username: engram
-    # -- PostgreSQL password. Change in production!
-    password: "engram_change_me"
+    # -- PostgreSQL password. Required when postgresql.enabled=true and
+    # postgresql.auth.existingSecret is empty. Use URL-safe characters only,
+    # because it is interpolated into ENGRAM_DATABASE_URL.
+    password: ""
+    # -- Name of an existing Secret holding the PostgreSQL password.
+    # When set, the chart does not create the postgresql Secret.
+    existingSecret: ""
+    # -- Key inside postgresql.auth.existingSecret that holds the password
+    existingSecretPasswordKey: password
     # -- PostgreSQL database name
     database: engram_cloud
   # -- Service configuration

@@ -1,0 +1,92 @@
+suite: validation tests
+templates:
+  - templates/validate.yaml
+
+# Baseline: authenticated mode with bundled PostgreSQL and every required value set.
+set:
+  engram.allowedProjects: "project1"
+  engram.cloudToken: "cloud-token"
+  engram.jwtSecret: "jwt-secret"
+  postgresql.auth.password: "pg-password"
+
+tests:
+  - it: should render nothing when configuration is valid
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should fail when allowedProjects is empty
+    set:
+      engram.allowedProjects: ""
+    asserts:
+      - failedTemplate:
+          errorPattern: "engram.allowedProjects is required"
+
+  - it: should fail in authenticated mode without cloudToken
+    set:
+      engram.cloudToken: ""
+    asserts:
+      - failedTemplate:
+          errorPattern: "engram.cloudToken is required"
+
+  - it: should fail in authenticated mode without jwtSecret
+    set:
+      engram.jwtSecret: ""
+    asserts:
+      - failedTemplate:
+          errorPattern: "engram.jwtSecret is required"
+
+  - it: should skip token checks when existingSecret is set
+    set:
+      engram.cloudToken: ""
+      engram.jwtSecret: ""
+      engram.existingSecret: "my-secret"
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should fail when tokenPepper equals jwtSecret
+    set:
+      engram.tokenPepper: "jwt-secret"
+    asserts:
+      - failedTemplate:
+          errorPattern: "engram.tokenPepper must be different from engram.jwtSecret"
+
+  - it: should fail when tokenPepper is set in insecure mode
+    set:
+      engram.insecureNoAuth: true
+      engram.cloudToken: ""
+      engram.tokenPepper: "pepper"
+    asserts:
+      - failedTemplate:
+          errorPattern: "engram.tokenPepper requires authenticated mode"
+
+  - it: should fail when no PostgreSQL connection is configured
+    set:
+      postgresql.enabled: false
+    asserts:
+      - failedTemplate:
+          errorPattern: "no PostgreSQL connection configured"
+
+  - it: should accept an external databaseUrl when bundled PostgreSQL is disabled
+    set:
+      postgresql.enabled: false
+      engram.databaseUrl: "postgres://u:p@db:5432/engram?sslmode=require"
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should fail when bundled PostgreSQL has no password
+    set:
+      postgresql.auth.password: ""
+    asserts:
+      - failedTemplate:
+          errorPattern: "postgresql.auth.password or postgresql.auth.existingSecret is required"
+
+  - it: should accept postgresql.auth.existingSecret instead of a password
+    set:
+      postgresql.auth.password: ""
+      postgresql.auth.existingSecret: "my-pg-secret"
+    asserts:
+      - hasDocuments:
+          count: 0

@@ -18,3 +18,7 @@ ingress:
     - secretName: engram-tls
       hosts:
         - engram.example.com
+
+postgresql:
+  auth:
+    password: "ci-test-postgres-password"

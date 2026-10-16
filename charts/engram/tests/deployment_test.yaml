@@ -65,40 +65,91 @@ tests:
           path: spec.template.spec.containers[0].securityContext.readOnlyRootFilesystem
           value: true
 
-  - it: should inject ENGRAM_DATABASE_URL from chart-managed secret by default
+  - it: should inject ENGRAM_DATABASE_URL from chart-managed secret when databaseUrl is set
+    template: templates/deployment.yaml
+    set:
+      postgresql.enabled: false
+      engram.databaseUrl: "postgres://u:p@external:5432/db"
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: ENGRAM_DATABASE_URL
+            valueFrom:
+              secretKeyRef:
+                name: RELEASE-NAME-engram
+                key: ENGRAM_DATABASE_URL
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: ENGRAM_POSTGRES_PASSWORD
+          any: true
+
+  - it: should build ENGRAM_DATABASE_URL from the bundled PostgreSQL secret by default
     template: templates/deployment.yaml
     asserts:
-      - equal:
-          path: spec.template.spec.containers[0].env[0].name
-          value: ENGRAM_DATABASE_URL
-      - equal:
-          path: spec.template.spec.containers[0].env[0].valueFrom.secretKeyRef.name
-          value: RELEASE-NAME-engram
-      - equal:
-          path: spec.template.spec.containers[0].env[0].valueFrom.secretKeyRef.key
-          value: ENGRAM_DATABASE_URL
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: ENGRAM_POSTGRES_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: RELEASE-NAME-postgresql
+                key: password
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: ENGRAM_DATABASE_URL
+            value: "postgres://engram:$(ENGRAM_POSTGRES_PASSWORD)@RELEASE-NAME-postgresql:5432/engram_cloud?sslmode=disable"
+
+  - it: should read the bundled PostgreSQL password from postgresql.auth.existingSecret
+    template: templates/deployment.yaml
+    set:
+      postgresql.auth.existingSecret: my-pg-secret
+      postgresql.auth.existingSecretPasswordKey: pg-pass
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: ENGRAM_POSTGRES_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: my-pg-secret
+                key: pg-pass
 
   - it: should inject ENGRAM_JWT_SECRET from chart-managed secret by default
     template: templates/deployment.yaml
     asserts:
-      - equal:
-          path: spec.template.spec.containers[0].env[1].name
-          value: ENGRAM_JWT_SECRET
-      - equal:
-          path: spec.template.spec.containers[0].env[1].valueFrom.secretKeyRef.name
-          value: RELEASE-NAME-engram
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: ENGRAM_JWT_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: RELEASE-NAME-engram
+                key: ENGRAM_JWT_SECRET
 
   - it: should switch secret reference when existingSecret is set
     template: templates/deployment.yaml
     set:
       engram.existingSecret: my-external-secret
     asserts:
-      - equal:
-          path: spec.template.spec.containers[0].env[0].valueFrom.secretKeyRef.name
-          value: my-external-secret
-      - equal:
-          path: spec.template.spec.containers[0].env[1].valueFrom.secretKeyRef.name
-          value: my-external-secret
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: ENGRAM_DATABASE_URL
+            valueFrom:
+              secretKeyRef:
+                name: my-external-secret
+                key: ENGRAM_DATABASE_URL
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: ENGRAM_JWT_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: my-external-secret
+                key: ENGRAM_JWT_SECRET
 
   - it: should use liveness probe on /health by default
     template: templates/deployment.yaml
@@ -200,37 +251,56 @@ tests:
   - it: should inject ENGRAM_CLOUD_ADMIN env var from secret (optional)
     template: templates/deployment.yaml
     asserts:
-      - equal:
-          path: spec.template.spec.containers[0].env[2].name
-          value: ENGRAM_CLOUD_ADMIN
-      - equal:
-          path: spec.template.spec.containers[0].env[2].valueFrom.secretKeyRef.key
-          value: ENGRAM_CLOUD_ADMIN
-      - equal:
-          path: spec.template.spec.containers[0].env[2].valueFrom.secretKeyRef.optional
-          value: true
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: ENGRAM_CLOUD_ADMIN
+            valueFrom:
+              secretKeyRef:
+                name: RELEASE-NAME-engram
+                key: ENGRAM_CLOUD_ADMIN
+                optional: true
 
   - it: should inject ENGRAM_CLOUD_TOKEN env var from secret (optional)
     template: templates/deployment.yaml
     asserts:
-      - equal:
-          path: spec.template.spec.containers[0].env[3].name
-          value: ENGRAM_CLOUD_TOKEN
-      - equal:
-          path: spec.template.spec.containers[0].env[3].valueFrom.secretKeyRef.key
-          value: ENGRAM_CLOUD_TOKEN
-      - equal:
-          path: spec.template.spec.containers[0].env[3].valueFrom.secretKeyRef.optional
-          value: true
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: ENGRAM_CLOUD_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: RELEASE-NAME-engram
+                key: ENGRAM_CLOUD_TOKEN
+                optional: true
+
+  - it: should inject ENGRAM_CLOUD_TOKEN_PEPPER env var from secret (optional)
+    template: templates/deployment.yaml
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: ENGRAM_CLOUD_TOKEN_PEPPER
+            valueFrom:
+              secretKeyRef:
+                name: RELEASE-NAME-engram
+                key: ENGRAM_CLOUD_TOKEN_PEPPER
+                optional: true
 
   - it: should use existingSecret name for ENGRAM_CLOUD_ADMIN env var
     template: templates/deployment.yaml
     set:
       engram.existingSecret: my-external-secret
     asserts:
-      - equal:
-          path: spec.template.spec.containers[0].env[2].valueFrom.secretKeyRef.name
-          value: my-external-secret
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: ENGRAM_CLOUD_ADMIN
+            valueFrom:
+              secretKeyRef:
+                name: my-external-secret
+                key: ENGRAM_CLOUD_ADMIN
+                optional: true
 
   - it: should mount /tmp emptyDir volume by default
     template: templates/deployment.yaml
@@ -266,6 +336,41 @@ tests:
       - equal:
           path: spec.template.spec.initContainers[0].image
           value: busybox:1.36
+
+  - it: should use custom registry, image and port for wait-for-postgresql init container
+    template: templates/deployment.yaml
+    release:
+      name: rel
+    set:
+      postgresql.service.port: 5433
+      postgresql.waitForReady.image.registry: my-registry.example.com
+      postgresql.waitForReady.image.repository: mirror/busybox
+      postgresql.waitForReady.image.tag: "1.37"
+      postgresql.waitForReady.resources.limits.memory: 16Mi
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[0].image
+          value: my-registry.example.com/mirror/busybox:1.37
+      - equal:
+          path: spec.template.spec.initContainers[0].command[2]
+          value: until nc -z rel-postgresql 5433; do echo waiting for postgresql; sleep 2; done
+      - equal:
+          path: spec.template.spec.initContainers[0].resources.limits.memory
+          value: 16Mi
+
+  - it: should add checksum annotations alongside user pod annotations
+    template: templates/deployment.yaml
+    set:
+      podAnnotations:
+        my-annotation: "true"
+    asserts:
+      - exists:
+          path: spec.template.metadata.annotations["checksum/config"]
+      - exists:
+          path: spec.template.metadata.annotations["checksum/postgresql"]
+      - equal:
+          path: spec.template.metadata.annotations["my-annotation"]
+          value: "true"
 
   - it: should NOT add wait-for-postgresql init container when postgresql.enabled is false
     template: templates/deployment.yaml

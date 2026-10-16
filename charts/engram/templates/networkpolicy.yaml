@@ -38,6 +38,9 @@ spec:
             matchLabels:
               app.kubernetes.io/name: traefik
     {{- end }}
+    {{- with .Values.networkPolicy.extraIngress }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
   egress:
     # Allow DNS resolution (UDP + TCP)
     - ports:
@@ -53,10 +56,12 @@ spec:
       to:
         - podSelector:
             matchLabels:
-              app.kubernetes.io/name: postgresql
+              app.kubernetes.io/name: {{ include "engram.postgresql.fullname" . }}
               app.kubernetes.io/instance: {{ .Release.Name }}
-    {{- else }}
-    # Allow egress to external PostgreSQL (any destination, restricted by port)
+    {{- end }}
+    {{- if ne (include "engram.databaseUrlSource" .) "bundled" }}
+    # Allow egress to external PostgreSQL (any destination, restricted by port).
+    # Use networkPolicy.extraEgress for non-standard ports.
     - ports:
         - port: 5432
           protocol: TCP
@@ -67,4 +72,7 @@ spec:
           protocol: TCP
         - port: 6443
           protocol: TCP
+    {{- with .Values.networkPolicy.extraEgress }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
 {{- end }}

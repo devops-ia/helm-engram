@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ .Release.Name }}-postgresql
+  name: {{ include "engram.postgresql.fullname" . }}
   labels:
     {{- include "engram.labels" . | nindent 4 }}
     app.kubernetes.io/component: postgresql
@@ -14,6 +14,6 @@ spec:
       targetPort: postgresql
       protocol: TCP
   selector:
-    app.kubernetes.io/name: {{ .Release.Name }}-postgresql
+    app.kubernetes.io/name: {{ include "engram.postgresql.fullname" . }}
     app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}

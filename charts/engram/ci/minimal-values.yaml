@@ -5,3 +5,7 @@ engram:
   insecureNoAuth: true
   # allowedProjects is required even in insecureNoAuth mode — binary exits immediately when empty
   allowedProjects: "project1,project2"
+
+postgresql:
+  auth:
+    password: "ci-test-postgres-password"
