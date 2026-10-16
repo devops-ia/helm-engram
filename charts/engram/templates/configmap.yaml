@@ -10,6 +10,9 @@ data:
   {{- if .Values.engram.allowedProjects }}
   ENGRAM_CLOUD_ALLOWED_PROJECTS: {{ .Values.engram.allowedProjects | quote }}
   {{- end }}
+  {{- if .Values.engram.maxPushBytes }}
+  ENGRAM_CLOUD_MAX_PUSH_BYTES: {{ int64 .Values.engram.maxPushBytes | quote }}
+  {{- end }}
   {{- if .Values.engram.insecureNoAuth }}
   ENGRAM_CLOUD_INSECURE_NO_AUTH: "1"
   {{- end }}

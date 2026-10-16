@@ -9,7 +9,7 @@ templates:
 tests:
   # ── DSN auto-generation ────────────────────────────────────────────────────
 
-  - it: should auto-build ENGRAM_DATABASE_URL from internal postgresql when postgresql.enabled=true
+  - it: should not duplicate the bundled PostgreSQL password into the Engram secret
     template: templates/secret.yaml
     set:
       postgresql.enabled: true
@@ -20,9 +20,8 @@ tests:
     asserts:
       - isKind:
           of: Secret
-      - matchRegex:
+      - notExists:
           path: data.ENGRAM_DATABASE_URL
-          pattern: "^.+$"
 
   - it: should prefer engram.databaseUrl over auto-generated DSN when both are set
     template: templates/secret.yaml
@@ -50,23 +49,47 @@ tests:
       - hasDocuments:
           count: 0
 
-  - it: should reference correct postgresql host in auto-generated DSN
-    template: templates/secret.yaml
+  - it: should reference correct postgresql host, port and database in auto-generated DSN
+    template: templates/deployment.yaml
     release:
       name: my-release
     set:
       postgresql.enabled: true
-      postgresql.auth.username: engram
+      postgresql.auth.username: myuser
       postgresql.auth.password: testpass
-      postgresql.auth.database: engram_cloud
+      postgresql.auth.database: mydb
+      postgresql.service.port: 5433
       engram.jwtSecret: my-jwt-secret
       engram.databaseUrl: ""
     asserts:
-      - isKind:
-          of: Secret
-      - equal:
-          path: data.ENGRAM_DATABASE_URL
-          value: "cG9zdGdyZXM6Ly9lbmdyYW06dGVzdHBhc3NAbXktcmVsZWFzZS1wb3N0Z3Jlc3FsOjU0MzIvZW5ncmFtX2Nsb3VkP3NzbG1vZGU9ZGlzYWJsZQ=="
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: ENGRAM_DATABASE_URL
+            value: "postgres://myuser:$(ENGRAM_POSTGRES_PASSWORD)@my-release-postgresql:5433/mydb?sslmode=disable"
+
+  - it: should not render postgresql secret when postgresql.auth.existingSecret is set
+    template: templates/postgresql/secret.yaml
+    set:
+      postgresql.auth.existingSecret: my-pg-secret
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should read POSTGRES_PASSWORD from postgresql.auth.existingSecret
+    template: templates/postgresql/statefulset.yaml
+    set:
+      postgresql.auth.existingSecret: my-pg-secret
+      postgresql.auth.existingSecretPasswordKey: pg-pass
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: POSTGRES_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: my-pg-secret
+                key: pg-pass
 
   # ── PostgreSQL Secret ──────────────────────────────────────────────────────
 
@@ -219,4 +242,3 @@ tests:
     asserts:
       - hasDocuments:
           count: 0
-

@@ -2,7 +2,7 @@ apiVersion: v2
 name: engram
 description: A Helm chart for Engram Cloud — AI-powered persistent memory server for LLM agents
 type: application
-version: 3.4.0
+version: 3.5.0
 appVersion: v3.4.0
 home: https://github.com/Gentleman-Programming/engram
 sources:
@@ -27,19 +27,25 @@ annotations:
   artifacthub.io/operator: "false"
   artifacthub.io/prerelease: "false"
   artifacthub.io/changes: |
-    - kind: added
-      description: "Built-in /tmp emptyDir volume for readOnlyRootFilesystem compatibility (tmpVolume.enabled)"
-    - kind: added
-      description: "ENGRAM_CLOUD_ADMIN support via engram.adminToken (dashboard /admin access)"
-    - kind: added
-      description: "ENGRAM_CLOUD_TOKEN support via engram.cloudToken (bearer token auth)"
-    - kind: added
-      description: "Optional NetworkPolicy template (networkPolicy.enabled)"
-    - kind: added
-      description: "PDB maxUnavailable option, mutually exclusive with minAvailable"
-    - kind: added
-      description: "runAsNonRoot: true in podSecurityContext"
     - kind: fixed
-      description: "CI: minimal-values.yaml was missing allowedProjects (caused silent crash on install)"
+      description: "Fail-fast validation moved to templates/validate.yaml so it also runs with helm template (ArgoCD, Flux, helmfile)"
+    - kind: fixed
+      description: "NetworkPolicy egress to bundled PostgreSQL now matches the StatefulSet pod labels"
+    - kind: fixed
+      description: "NOTES.txt health check URL (/health instead of /healthz)"
+    - kind: added
+      description: "Validation for missing PostgreSQL connection and missing bundled PostgreSQL password"
+    - kind: added
+      description: "engram.tokenPepper (ENGRAM_CLOUD_TOKEN_PEPPER) for managed-token authentication"
+    - kind: added
+      description: "engram.maxPushBytes (ENGRAM_CLOUD_MAX_PUSH_BYTES)"
+    - kind: added
+      description: "checksum/config and checksum/postgresql pod annotations to roll pods on config changes"
+    - kind: added
+      description: "Configurable wait-for-postgresql init container image and resources"
+    - kind: added
+      description: "postgresql.auth.existingSecret support; DSN built in-pod without duplicating the password"
+    - kind: added
+      description: "networkPolicy.extraIngress / extraEgress (e.g. AWS ALB target-type ip)"
     - kind: changed
-      description: "CI: helm unittest runs before ct lint and ct install"
+      description: "BREAKING: postgresql.auth.password has no default; set it or postgresql.auth.existingSecret"

@@ -8,10 +8,6 @@ The chart lives at `charts/engram/` and follows standard Helm chart conventions.
 ## Build, Test & Lint
 
 ```bash
-# Install dependencies (run once or after Chart.yaml changes)
-helm repo add bitnami https://charts.bitnami.com/bitnami
-helm dependency update charts/engram/
-
 # Lint
 npm run lint                     # helm lint charts/engram
 npm run lint:full                # lint with full CI values
@@ -45,7 +41,7 @@ helm plugin install https://github.com/helm-unittest/helm-unittest --verify=fals
 
 ## Architecture
 
-Single chart at `charts/engram/` with one subchart dependency (`bitnami/postgresql`).
+Single chart at `charts/engram/` with no subchart dependencies (bundled PostgreSQL uses internal templates in `templates/postgresql/`).
 
 ```
 charts/engram/
@@ -55,8 +51,10 @@ charts/engram/
 ├── templates/
 │   ├── _helpers.tpl      # shared named templates
 │   ├── deployment.yaml
-│   ├── configmap.yaml    # non-secret env vars (port, host, allowedProjects)
-│   ├── secret.yaml       # ENGRAM_DATABASE_URL + ENGRAM_JWT_SECRET (rendered only if existingSecret is empty)
+│   ├── validate.yaml     # renders nothing; calls engram.validateConfig (fail-fast, also on helm template)
+│   ├── configmap.yaml    # non-secret env vars (port, host, allowedProjects, maxPushBytes)
+│   ├── secret.yaml       # Engram secrets (rendered only if existingSecret is empty)
+│   ├── postgresql/       # bundled PostgreSQL StatefulSet, Service and password Secret
 │   ├── extra-objects.yaml # renders .Values.extraObjects via tpl
 │   └── ...               # service, ingress, hpa, pdb, serviceaccount
 ├── tests/                # helm-unittest YAML test suites
@@ -68,16 +66,18 @@ charts/engram/
 ```
 
 **Config split — ConfigMap vs Secret:**
-- `ConfigMap`: `ENGRAM_PORT`, `ENGRAM_CLOUD_HOST`, `ENGRAM_ALLOWED_PROJECTS`, `ENGRAM_INSECURE_NO_AUTH`
-- `Secret`: `ENGRAM_DATABASE_URL`, `ENGRAM_JWT_SECRET`
+- `ConfigMap`: `ENGRAM_PORT`, `ENGRAM_CLOUD_HOST`, `ENGRAM_CLOUD_ALLOWED_PROJECTS`, `ENGRAM_CLOUD_INSECURE_NO_AUTH`, `ENGRAM_CLOUD_MAX_PUSH_BYTES`
+- `Secret`: `ENGRAM_DATABASE_URL` (only when `engram.databaseUrl` is set), `ENGRAM_JWT_SECRET`, `ENGRAM_CLOUD_TOKEN`, `ENGRAM_CLOUD_ADMIN`, `ENGRAM_CLOUD_TOKEN_PEPPER`
 
 **Secret resolution (`engram.secretName` helper):**
 1. If `engram.existingSecret` is set, use that Secret and skip rendering `templates/secret.yaml` entirely.
-2. If `engram.existingSecret` is not set, render `templates/secret.yaml` and create a Secret from `engram.databaseUrl` + `engram.jwtSecret`.
+2. If `engram.existingSecret` is not set, render `templates/secret.yaml` and create a Secret from the `engram.*` secret values.
 
-**DSN auto-build:** When `postgresql.enabled=true` and `engram.databaseUrl=""`, the `engram.databaseUrl` helper in `_helpers.tpl` assembles the DSN from `postgresql.auth.*` values. Explicit `engram.databaseUrl` always wins.
+**DSN resolution (`engram.databaseUrlSource` helper):** `existingSecret` > `engram.databaseUrl` > bundled PostgreSQL. In bundled mode the Deployment injects `ENGRAM_POSTGRES_PASSWORD` from the PostgreSQL Secret (`postgresql.auth.existingSecret` or the chart-managed one) and builds `ENGRAM_DATABASE_URL` with Kubernetes `$(VAR)` interpolation, so the password is never duplicated.
 
-**Init container:** When `postgresql.enabled=true`, the deployment automatically injects a `wait-for-postgresql` busybox init container (unless `postgresql.waitForReady.disabled=true`).
+**Init container:** When `postgresql.enabled=true`, the deployment automatically injects a `wait-for-postgresql` init container (image configurable via `postgresql.waitForReady.image`, disabled with `postgresql.waitForReady.disabled=true`).
+
+**Validation:** `engram.validateConfig` is rendered from `templates/validate.yaml`. helm-unittest only renders the templates listed in a suite, so validation tests live in `tests/validate_test.yaml`.
 
 ---
 
@@ -104,7 +104,10 @@ All chart-specific helpers are prefixed `engram.*`:
 - `engram.labels`, `engram.selectorLabels`
 - `engram.serviceAccountName`
 - `engram.secretName` — resolves existingSecret vs chart-managed secret
-- `engram.databaseUrl` — auto-builds DSN from subchart values
+- `engram.validateConfig` — fail-fast checks
+- `engram.databaseUrlSource` — `existingSecret` | `value` | `bundled` | empty
+- `engram.postgresql.fullname`, `engram.postgresql.secretName`, `engram.postgresql.secretKey`, `engram.postgresql.databaseUrl`
+- `engram.waitForReady.image`
 
 ### Security defaults (do not weaken without tests)
 - `runAsUser: 10001`, `runAsGroup: 10001`, `fsGroup: 10001`

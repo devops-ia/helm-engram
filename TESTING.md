@@ -59,8 +59,11 @@ helm template engram charts/engram -f charts/engram/ci/full-values.yaml
 # Verify existingSecret skips Secret creation
 helm template engram charts/engram \
   --set engram.existingSecret=my-secret \
-  --set engram.databaseUrl="" \
-  --set engram.jwtSecret=""
+  --set engram.allowedProjects=my-project \
+  --set postgresql.enabled=false
+
+# Verify fail-fast validation (must fail: allowedProjects and DB are missing)
+helm template engram charts/engram
 ```
 
 ## npm scripts (convenience)

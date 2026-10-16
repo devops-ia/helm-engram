@@ -51,3 +51,7 @@ nodeSelector:
   kubernetes.io/os: linux
 
 # tmpVolume.enabled=true by default; no need for extraVolumes override
+
+postgresql:
+  auth:
+    password: "ci-test-postgres-password"

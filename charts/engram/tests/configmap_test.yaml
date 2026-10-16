@@ -67,6 +67,19 @@ tests:
           path: data.ENGRAM_CLOUD_INSECURE_NO_AUTH
           value: "1"
 
+  - it: should set ENGRAM_CLOUD_MAX_PUSH_BYTES when maxPushBytes is set
+    set:
+      engram.maxPushBytes: 16777216
+    asserts:
+      - equal:
+          path: data.ENGRAM_CLOUD_MAX_PUSH_BYTES
+          value: "16777216"
+
+  - it: should NOT include ENGRAM_CLOUD_MAX_PUSH_BYTES by default
+    asserts:
+      - notExists:
+          path: data.ENGRAM_CLOUD_MAX_PUSH_BYTES
+
   - it: should have standard labels
     asserts:
       - equal:

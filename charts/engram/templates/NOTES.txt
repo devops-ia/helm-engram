@@ -1,4 +1,3 @@
-{{- include "engram.validateConfig" . -}}
 Engram Cloud has been deployed to {{ .Release.Namespace }}!
 
 1. Get the application URL:
@@ -10,17 +9,8 @@ Engram Cloud has been deployed to {{ .Release.Namespace }}!
 {{- end }}
 {{- else }}
    kubectl port-forward --namespace {{ .Release.Namespace }} svc/{{ include "engram.fullname" . }} 18080:{{ .Values.service.port }}
-   curl http://localhost:18080/healthz
+   curl http://localhost:18080/health
 {{- end }}
 
 2. Check Engram Cloud status:
    kubectl get pods --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/name={{ include "engram.name" . }},app.kubernetes.io/instance={{ .Release.Name }}"
-
-{{- if not .Values.engram.databaseUrl }}
-{{- if not .Values.engram.existingSecret }}
-
-⚠  WARNING: engram.databaseUrl is not set and no existingSecret is configured.
-   Engram Cloud will fail to start without a PostgreSQL connection.
-   Set engram.databaseUrl or engram.existingSecret in your values.
-{{- end }}
-{{- end }}

@@ -1,0 +1,83 @@
+suite: networkpolicy tests
+templates:
+  - templates/networkpolicy.yaml
+
+tests:
+  - it: should not render a NetworkPolicy by default
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should allow egress to the bundled PostgreSQL pods using their real labels
+    release:
+      name: rel
+    set:
+      networkPolicy.enabled: true
+    asserts:
+      - contains:
+          path: spec.egress
+          content:
+            ports:
+              - port: 5432
+                protocol: TCP
+            to:
+              - podSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: rel-postgresql
+                    app.kubernetes.io/instance: rel
+      - notContains:
+          path: spec.egress
+          content:
+            ports:
+              - port: 5432
+                protocol: TCP
+
+  - it: should allow egress to an external PostgreSQL when databaseUrl is set
+    set:
+      networkPolicy.enabled: true
+      postgresql.enabled: false
+      engram.databaseUrl: "postgres://u:p@db:5432/engram?sslmode=require"
+    asserts:
+      - contains:
+          path: spec.egress
+          content:
+            ports:
+              - port: 5432
+                protocol: TCP
+
+  - it: should append extraIngress and extraEgress rules
+    set:
+      networkPolicy.enabled: true
+      networkPolicy.extraIngress:
+        - from:
+            - ipBlock:
+                cidr: 10.0.0.0/16
+          ports:
+            - port: 18080
+              protocol: TCP
+      networkPolicy.extraEgress:
+        - to:
+            - ipBlock:
+                cidr: 10.1.0.0/16
+          ports:
+            - port: 6543
+              protocol: TCP
+    asserts:
+      - contains:
+          path: spec.ingress
+          content:
+            from:
+              - ipBlock:
+                  cidr: 10.0.0.0/16
+            ports:
+              - port: 18080
+                protocol: TCP
+      - contains:
+          path: spec.egress
+          content:
+            to:
+              - ipBlock:
+                  cidr: 10.1.0.0/16
+            ports:
+              - port: 6543
+                protocol: TCP

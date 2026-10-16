@@ -17,10 +17,15 @@ spec:
       {{- include "engram.selectorLabels" . | nindent 6 }}
   template:
     metadata:
-      {{- with .Values.podAnnotations }}
       annotations:
+        {{- /* Roll pods when chart-managed config or secrets change */}}
+        checksum/config: {{ toJson .Values.engram | sha256sum }}
+        {{- if .Values.postgresql.enabled }}
+        checksum/postgresql: {{ toJson .Values.postgresql.auth | sha256sum }}
+        {{- end }}
+        {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
-      {{- end }}
+        {{- end }}
       labels:
         {{- include "engram.selectorLabels" . | nindent 8 }}
         {{- with .Values.podLabels }}
@@ -36,7 +41,12 @@ spec:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       {{- $initContainers := .Values.initContainers | default list }}
       {{- if and .Values.postgresql.enabled (not .Values.postgresql.waitForReady.disabled) }}
-      {{- $waitInit := dict "name" "wait-for-postgresql" "image" "busybox:1.36" "command" (list "sh" "-c" (printf "until nc -z %s-postgresql 5432; do echo waiting for postgresql; sleep 2; done" .Release.Name)) "securityContext" (dict "runAsNonRoot" true "runAsUser" 65534 "allowPrivilegeEscalation" false "capabilities" (dict "drop" (list "ALL"))) }}
+      {{- $waitCfg := .Values.postgresql.waitForReady }}
+      {{- $waitCmd := printf "until nc -z %s %v; do echo waiting for postgresql; sleep 2; done" (include "engram.postgresql.fullname" .) .Values.postgresql.service.port }}
+      {{- $waitInit := dict "name" "wait-for-postgresql" "image" (include "engram.waitForReady.image" .) "imagePullPolicy" $waitCfg.image.pullPolicy "command" (list "sh" "-c" $waitCmd) "securityContext" (dict "runAsNonRoot" true "runAsUser" 65534 "allowPrivilegeEscalation" false "readOnlyRootFilesystem" true "capabilities" (dict "drop" (list "ALL"))) }}
+      {{- with $waitCfg.resources }}
+      {{- $_ := set $waitInit "resources" . }}
+      {{- end }}
       {{- $initContainers = prepend $initContainers $waitInit }}
       {{- end }}
       {{- with $initContainers }}
@@ -65,11 +75,21 @@ spec:
             {{- toYaml . | nindent 12 }}
             {{- end }}
           env:
+            {{- if eq (include "engram.databaseUrlSource" .) "bundled" }}
+            - name: ENGRAM_POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "engram.postgresql.secretName" . }}
+                  key: {{ include "engram.postgresql.secretKey" . }}
+            - name: ENGRAM_DATABASE_URL
+              value: {{ include "engram.postgresql.databaseUrl" . | quote }}
+            {{- else }}
             - name: ENGRAM_DATABASE_URL
               valueFrom:
                 secretKeyRef:
                   name: {{ include "engram.secretName" . }}
                   key: ENGRAM_DATABASE_URL
+            {{- end }}
             - name: ENGRAM_JWT_SECRET
               valueFrom:
                 secretKeyRef:
@@ -86,6 +106,12 @@ spec:
                 secretKeyRef:
                   name: {{ include "engram.secretName" . }}
                   key: ENGRAM_CLOUD_TOKEN
+                  optional: true
+            - name: ENGRAM_CLOUD_TOKEN_PEPPER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "engram.secretName" . }}
+                  key: ENGRAM_CLOUD_TOKEN_PEPPER
                   optional: true
             {{- with .Values.env }}
             {{- toYaml . | nindent 12 }}
