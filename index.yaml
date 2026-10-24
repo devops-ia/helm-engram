@@ -30,6 +30,62 @@ entries:
       artifacthub.io/operator: "false"
       artifacthub.io/prerelease: "false"
     apiVersion: v2
+    appVersion: v3.5.4
+    created: "2026-10-24T12:18:12.810113372Z"
+    description: A Helm chart for Engram Cloud — AI-powered persistent memory server
+      for LLM agents
+    digest: 86dedf902f8abd20152cf53f2a1903ecc4e914abf39d2018eb592c0be971cd59
+    home: https://github.com/Gentleman-Programming/engram
+    keywords:
+    - engram
+    - ai
+    - memory
+    - llm
+    - mcp
+    - agent
+    - golang
+    maintainers:
+    - email: adrianmg231189@gmail.com
+      name: amartingarcia
+    - email: hello@ialejandro.rocks
+      name: ialejandro
+    name: engram
+    sources:
+    - https://github.com/Gentleman-Programming/engram
+    - https://github.com/devops-ia/helm-engram
+    type: application
+    urls:
+    - https://github.com/devops-ia/helm-engram/releases/download/v3.5.4/engram-3.5.4.tgz
+    version: 3.5.4
+  - annotations:
+      artifacthub.io/category: ai-ml
+      artifacthub.io/changes: |
+        - kind: fixed
+          description: "Fail-fast validation moved to templates/validate.yaml so it also runs with helm template (ArgoCD, Flux, helmfile)"
+        - kind: fixed
+          description: "NetworkPolicy egress to bundled PostgreSQL now matches the StatefulSet pod labels"
+        - kind: fixed
+          description: "NOTES.txt health check URL (/health instead of /healthz)"
+        - kind: added
+          description: "Validation for missing PostgreSQL connection and missing bundled PostgreSQL password"
+        - kind: added
+          description: "engram.tokenPepper (ENGRAM_CLOUD_TOKEN_PEPPER) for managed-token authentication"
+        - kind: added
+          description: "engram.maxPushBytes (ENGRAM_CLOUD_MAX_PUSH_BYTES)"
+        - kind: added
+          description: "checksum/config and checksum/postgresql pod annotations to roll pods on config changes"
+        - kind: added
+          description: "Configurable wait-for-postgresql init container image and resources"
+        - kind: added
+          description: "postgresql.auth.existingSecret support; DSN built in-pod without duplicating the password"
+        - kind: added
+          description: "networkPolicy.extraIngress / extraEgress (e.g. AWS ALB target-type ip)"
+        - kind: changed
+          description: "BREAKING: postgresql.auth.password has no default; set it or postgresql.auth.existingSecret"
+      artifacthub.io/license: MIT
+      artifacthub.io/operator: "false"
+      artifacthub.io/prerelease: "false"
+    apiVersion: v2
     appVersion: v3.5.2
     created: "2026-10-22T13:16:30.316136354Z"
     description: A Helm chart for Engram Cloud — AI-powered persistent memory server
@@ -869,4 +925,4 @@ entries:
     urls:
     - https://github.com/devops-ia/helm-engram/releases/download/v1.15.10/engram-1.15.10.tgz
     version: 1.15.10
-generated: "2026-10-22T13:16:30.316197519Z"
+generated: "2026-10-24T12:18:12.810242413Z"
